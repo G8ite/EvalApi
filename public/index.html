@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Application de Suivi en Temps Réel et Visioconférence</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        #map {
+            height: 88vh;
+            width: 100%;
+        }
+
+        #videos {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 1000px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            z-index: 999;
+        }
+
+        #disconnectButton {
+            margin-top: 20px;
+            padding: 10px 20px;
+            width: 25%;
+            background-color: #ff0000;
+            color: #ffffff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        #disconnectButton:hover {
+            background-color: #cc0000;
+        }
+
+        #disconnectButton:focus {
+            outline: none;
+        }
+
+        .waiting-message {
+            color: #ffffff;
+            text-align: center;
+        }
+
+        .video-container {
+            width: 48%;
+            float: left;
+            position: relative;
+        }
+
+
+        .video-container video {
+            width: 100%;
+        }
+
+        .waiting-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Application de Suivi en Temps Réel et Visioconférence</h1>
+    <div id="map"></div>
+    <div id="videos" style="display: none;">
+        <button id="disconnectButton" onclick="disconnect()">Déconnexion</button>
+        <div class="videos-container">
+            <div class="video-container">
+                <video id="localVideo" autoplay muted></video>
+            </div>
+            <div class="video-container">
+                <video id="remoteVideo" autoplay></video>
+                <div class="waiting-message" id="waitingMessage">En attente de l'autre personne</div>
+            </div>
+        </div>
+    </div>
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script>
+        let map, localStream, socket, peerConnection, latitude, longitude;
+
+        function initMap() {
+            map = L.map('map').setView([0, 0], 2);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+
+            if (navigator.geolocation) {
+                navigator.geolocation.watchPosition(updatePosition, handleError, {
+                    enableHighAccuracy: true,
+                    maximumAge: 0,
+                    timeout: 5000
+                });
+            }
+        }
+
+        function updatePosition(position) {
+            latitude = position.coords.latitude;
+            longitude = position.coords.longitude;
+            const pos = [latitude, longitude];
+            const marker = L.marker(pos).addTo(map);
+            marker.on('click', () => {
+                const confirmation = confirm("Voulez-vous démarrer la vidéo ?");
+                if (confirmation) {
+                    startVideoCall();
+                }
+            });
+            map.setView(pos, 13);
+            socket.latitude = latitude; // Définir latitude sur l'objet WebSocket
+            socket.longitude = longitude; // Définir longitude sur l'objet WebSocket
+        }
+
+
+        function handleError(error) {
+            console.error('Error obtaining geolocation', error);
+        }
+
+        function setupWebSocket() {
+            socket = new WebSocket('ws://localhost:3000');
+            socket.onopen = () => {
+                console.log('WebSocket connection opened');
+                if (latitude && longitude) {
+                    const data = JSON.stringify({ latitude, longitude });
+                    socket.send(data);
+                } else {
+                    console.error('Latitude or longitude is not defined');
+                }
+            };
+            socket.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.type === 'videoCallRequest') {
+                    const confirmation = confirm("Vous avez reçu une demande d'appel vidéo. Voulez-vous accepter ?");
+                    if (confirmation) {
+                        startVideoCall();
+                    }
+                }
+            };
+        }
+
+        function startVideoCall() {
+            navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+                .then(stream => {
+                    localStream = stream;
+                    const localVideo = document.getElementById('localVideo');
+                    localVideo.srcObject = stream;
+                    peerConnection = new RTCPeerConnection();
+                    localStream.getTracks().forEach(track => {
+                        peerConnection.addTrack(track, localStream);
+                    });
+                    peerConnection.ontrack = event => {
+                        const remoteVideo = document.getElementById('remoteVideo');
+                        remoteVideo.srcObject = event.streams[0];
+                        document.getElementById('waitingMessage').style.display = 'none';
+                    };
+                    peerConnection.createOffer()
+                        .then(offer => peerConnection.setLocalDescription(offer))
+                        .then(() => {
+                            socket.send(JSON.stringify({ type: 'videoCall', payload: { offer: peerConnection.localDescription } }));
+                        });
+                    document.getElementById('videos').style.display = 'flex';
+                })
+                .catch(error => {
+                    console.error('Error accessing media devices.', error);
+                });
+        }
+
+        function disconnect() {
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
+                localStream.getTracks().forEach(track => track.stop());
+                const localVideo = document.getElementById('localVideo');
+                localVideo.srcObject = null;
+                const remoteVideo = document.getElementById('remoteVideo');
+                remoteVideo.srcObject = null;
+                document.getElementById('videos').style.display = 'none';
+                document.getElementById('waitingMessage').style.display = 'block';
+            }
+        }
+
+        function setupAccelerometer() {
+            if ('Accelerometer' in window) {
+                const sensor = new Accelerometer({ frequency: 60 });
+                sensor.addEventListener('reading', () => {
+                    console.log(`X: ${sensor.x}, Y: ${sensor.y}, Z: ${sensor.z}`);
+                    // Vous pouvez ajouter du code ici
+                    // pour envoyer les données de l'accéléromètre au serveur
+                });
+                sensor.start();
+            } else {
+                console.log('Accelerometer not supported');
+            }
+        }
+
+        async function waitForSocketConnection(socket, callback) {
+            while (socket.readyState === WebSocket.CONNECTING) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+            if (socket.readyState === WebSocket.OPEN) {
+                callback();
+            } else {
+                console.error('WebSocket connection failed');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initMap();
+            setupWebSocket();
+            setupAccelerometer();
+        });
+    </script>
+</body>
+
+</html>
