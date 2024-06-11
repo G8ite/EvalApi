@@ -1,65 +1,23 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Real-time Map</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <style>
-        #map {
-            height: 500px;
-        }
-
-        #overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
-            z-index: 1000;
-            display: none;
-        }
-
-        #chatModal {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background-color: white;
-            padding: 20px;
-            border-radius: 5px;
-            z-index: 1001;
-            display: none;
-        }
-
-        #closeChat {
-            position: absolute;
-            top: 5px;
-            right: 10px;
-            cursor: pointer;
-        }
+        #map { height: 500px; }
     </style>
 </head>
-
 <body>
     <div id="map"></div>
-    <div id="overlay"></div>
-    <div id="chatModal">
-        <div id="closeChat" onclick="closeChatWindow()">X</div>
-        <h2>Chat</h2>
-        <div id="chatMessages"></div>
-        <textarea id="messageInput"></textarea>
-        <button onclick="sendMessage()">Send</button>
-    </div>
 
     <script src="https://unpkg.com/socket.io/client-dist/socket.io.js"></script>
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script>
         const socket = io();
-        let markers = {};
-        let chatUserId = null; // ID de l'utilisateur avec qui le chat est ouvert
+        const map = L.map('map').setView([0, 0], 2);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
         socket.on('updateUsers', users => {
             // Clear markers
@@ -70,48 +28,10 @@
                 const { id, lat, lon } = user;
                 const marker = L.marker([lat, lon]).addTo(map);
                 markers[id] = marker;
-
-                // Ajouter un événement de clic pour ouvrir la fenêtre de chat
-                marker.on('click', () => {
-                    if (id !== socket.id) { // Ne pas ouvrir de chat avec soi-même
-                        const acceptChat = confirm('Would you like to start a chat with this user?');
-                        if (acceptChat) {
-                            socket.emit('startChat', id);
-                        }
-                    }
-                });
             });
         });
 
-        const map = L.map('map').setView([0, 0], 2);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-        // Fonction pour ouvrir une fenêtre de chat avec un utilisateur
-        function openChatWindow(userId) {
-            chatUserId = userId;
-            document.getElementById('overlay').style.display = 'block';
-            document.getElementById('chatModal').style.display = 'block';
-        }
-
-        // Fonction pour fermer la fenêtre de chat
-        function closeChatWindow() {
-            chatUserId = null;
-            document.getElementById('overlay').style.display = 'none';
-            document.getElementById('chatModal').style.display = 'none';
-        }
-
-        // Gérer les événements de chat
-        socket.on('chatRequest', initiatorUserId => {
-            const acceptChat = confirm('You have a chat request. Would you like to accept?');
-            if (acceptChat) {
-                socket.emit('acceptChat', initiatorUserId);
-            }
-        });
-
-        socket.on('chatAccepted', targetUserId => {
-            openChatWindow(targetUserId);
-        });
-
+        let markers = {};
         // Add user's current location to the map
         navigator.geolocation.getCurrentPosition(position => {
             const { latitude, longitude } = position.coords;
@@ -122,8 +42,6 @@
         }, error => {
             console.error('Error getting location:', error);
         });
-
     </script>
 </body>
-
 </html>
