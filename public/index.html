@@ -29,59 +29,73 @@
         const socket = io();
         const map = L.map('map').setView([0, 0], 2);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-        const Bleu = '#0000FF';
-        const Rouge = '#FF0000';
+        const Bleu = '##0000FF'
+        const Rouge = '#FF0000'
 
         const markerHtmlStylesBleu = `
             background-color: ${Bleu};
-            width: 2rem;
-            height: 2rem;
+            width: 3rem;
+            height: 3rem;
             display: block;
-            left: -1rem;
-            top: -1rem;
+            left: -1.5rem;
+            top: -1.5rem;
             position: relative;
-            border-radius: 2rem 2rem 0;
+            border-radius: 3rem 3rem 0;
             transform: rotate(45deg);
-            border: 1px solid #FFFFFF`;
-
+            border: 1px solid #FFFFFF`
         const markerHtmlStylesRouge = `
             background-color: ${Rouge};
-            width: 2rem;
-            height: 2rem;
+            width: 3rem;
+            height: 3rem;
             display: block;
-            left: -1rem;
-            top: -1rem;
+            left: -1.5rem;
+            top: -1.5rem;
             position: relative;
-            border-radius: 2rem 2rem 0;
+            border-radius: 3rem 3rem 0;
             transform: rotate(45deg);
-            border: 1px solid #FFFFFF`;
+            border: 1px solid #FFFFFF`
 
         const blueIcon = L.divIcon({
             className: "my-custom-pin",
             iconAnchor: [0, 24],
             labelAnchor: [-6, 0],
             popupAnchor: [0, -36],
-            html: `<span style="${markerHtmlStylesBleu}"></span>`
-        });
+            html: `<span style="${markerHtmlStylesBleu}" />`
+        })
         const redIcon = L.divIcon({
             className: "my-custom-pin",
             iconAnchor: [0, 24],
             labelAnchor: [-6, 0],
             popupAnchor: [0, -36],
-            html: `<span style="${markerHtmlStylesRouge}"></span>`
-        });
+            html: `<span style="${markerHtmlStylesRouge}" />`
+        })
         socket.on('updateUsers', users => {
+            // Clear markers
             Object.values(markers).forEach(marker => map.removeLayer(marker));
             markers = {};
             users.forEach(user => {
                 const { id, lat, lon } = user;
+                console.log("id : " + id)
+                console.log("socket id : " + socket.id)
                 const markerIcon = id === socket.id ? redIcon : blueIcon;
                 const marker = L.marker([lat, lon], { icon: markerIcon }).addTo(map);
+
+                // Ajouter un événement de clic pour demander un chat
+                marker.on('click', () => {
+                    if (id !== socket.id) { // Ne pas demander un chat avec soi-même
+                        const acceptChat = confirm('Would you like to start a chat with this user?');
+                        if (acceptChat) {
+                            socket.emit('requestChat', id);
+                        }
+                    }
+                });
+
                 markers[id] = marker;
             });
         });
 
         let markers = {};
+        // Add user's current location to the map
         navigator.geolocation.getCurrentPosition(position => {
             const { latitude, longitude } = position.coords;
             const location = { lat: latitude, lon: longitude };

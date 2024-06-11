@@ -29,8 +29,11 @@ io.on('connection', socket => {
         users[socket.id] = { id: socket.id, ...location };
         io.emit('updateUsers', Object.values(users));
     });
-});
 
+    socket.on('requestChat', targetUserId => {
+        io.to(targetUserId).emit('chatRequest', socket.id);
+    });
+});
 
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
