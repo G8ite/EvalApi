@@ -90,6 +90,7 @@
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script>
         let map, localStream, socket, peerConnection, latitude, longitude;
+        let markers = {};
 
         function initMap() {
             map = L.map('map').setView([0, 0], 2);
@@ -111,42 +112,63 @@
             latitude = position.coords.latitude;
             longitude = position.coords.longitude;
             const pos = [latitude, longitude];
-            const marker = L.marker(pos).addTo(map);
-            marker.on('click', () => {
+
+            // Ajout ou mise à jour du marqueur de l'utilisateur local
+            if (!markers['local']) {
+                markers['local'] = L.marker(pos).addTo(map);
+            } else {
+                markers['local'].setLatLng(pos);
+            }
+
+            markers['local'].on('click', () => {
                 const confirmation = confirm("Voulez-vous démarrer la vidéo ?");
                 if (confirmation) {
                     startVideoCall();
                 }
             });
-            map.setView(pos, 13);
-            socket.latitude = latitude; // Définir latitude sur l'objet WebSocket
-            socket.longitude = longitude; // Définir longitude sur l'objet WebSocket
-        }
 
+            map.setView(pos, 13);
+
+            if (socket.readyState === WebSocket.OPEN) {
+                const data = { type: 'geolocation', payload: { latitude, longitude } };
+                socket.send(JSON.stringify(data));
+            }
+        }
 
         function handleError(error) {
             console.error('Error obtaining geolocation', error);
         }
 
+
         function setupWebSocket() {
             socket = new WebSocket('ws://localhost:3000');
             socket.onopen = () => {
                 console.log('WebSocket connection opened');
-                if (latitude && longitude) {
-                    const data = JSON.stringify({ latitude, longitude });
-                    socket.send(data);
-                } else {
-                    console.error('Latitude or longitude is not defined');
-                }
             };
             socket.onmessage = (event) => {
                 const data = JSON.parse(event.data);
-                if (data.type === 'videoCallRequest') {
+                if (data.type === 'geolocation') {
+                    const { latitude, longitude } = data.payload;
+                    const pos = [latitude, longitude];
+
+                    // Ajout ou mise à jour des marqueurs des autres utilisateurs
+                    if (!markers[data.id]) {
+                        markers[data.id] = L.marker(pos).addTo(map);
+                    } else {
+                        markers[data.id].setLatLng(pos);
+                    }
+                } else if (data.type === 'videoCallRequest') {
                     const confirmation = confirm("Vous avez reçu une demande d'appel vidéo. Voulez-vous accepter ?");
                     if (confirmation) {
                         startVideoCall();
                     }
                 }
+            };
+            socket.onclose = () => {
+                console.log('WebSocket connection closed');
+            };
+            socket.onerror = (error) => {
+                console.error('WebSocket error:', error);
             };
         }
 
