@@ -33,7 +33,7 @@ io.on('connection', socket => {
     socket.on('startChat', targetUserId => {
         const targetSocket = io.sockets.connected[targetUserId];
         if (targetSocket) {
-            socket.emit('chatRequest', targetUserId);
+            targetSocket.emit('chatRequest', socket.id);
         }
     });
 });
