@@ -26,7 +26,7 @@ io.on('connection', socket => {
     });
 
     socket.on('updateLocation', location => {
-        users[socket.id] = { id: socket.id, ...location }; // Ajout de l'ID de l'utilisateur
+        users[socket.id] = { id: socket.id, ...location };
         io.emit('updateUsers', Object.values(users));
     });
 
