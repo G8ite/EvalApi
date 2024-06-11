@@ -4,11 +4,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Real-time Map</title>
+    <title>Real-time Map with Chat</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <style>
         #map {
             height: 500px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 600px;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
         }
     </style>
 </head>
@@ -16,23 +51,24 @@
 <body>
     <div id="map"></div>
 
+    <div id="chatModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeChatWindow()">&times;</span>
+            <h2>Chat</h2>
+            <div id="chatMessages"></div>
+            <form onsubmit="sendMessage(); return false;">
+                <input type="text" id="messageInput" placeholder="Type your message...">
+                <button type="submit">Send</button>
+            </form>
+        </div>
+    </div>
+
     <script src="https://unpkg.com/socket.io/client-dist/socket.io.js"></script>
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script>
         const socket = io();
-        socket.on('updateUsers', users => {
-            Object.values(markers).forEach(marker => marker.remove());
-            markers = {};
-
-            users.forEach(user => {
-                const { id, lat, lon } = user;
-                const marker = L.marker([lat, lon]).addTo(map);
-                markers[id] = marker;
-            });
-        });
-
-        const map = L.map('map').setView([0, 0], 2);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        let markers = {};
+        let chatUserId = null; // ID de l'utilisateur avec qui le chat est ouvert
 
         socket.on('updateUsers', users => {
             // Clear markers
@@ -43,11 +79,55 @@
                 const { id, lat, lon } = user;
                 const marker = L.marker([lat, lon]).addTo(map);
                 markers[id] = marker;
+
+                // Ajouter un événement de clic pour ouvrir la fenêtre de chat
+                marker.on('click', () => {
+                    if (id !== socket.id) { // Ne pas ouvrir de chat avec soi-même
+                        openChatWindow(id);
+                    }
+                });
             });
         });
 
-        let markers = {};
-        // Add user's current location to the map
+        const map = L.map('map').setView([0, 0], 2);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+        // Fonction pour ouvrir une fenêtre de chat avec un utilisateur
+        function openChatWindow(userId) {
+            chatUserId = userId;
+            document.getElementById('chatModal').style.display = 'block';
+            // Vous pouvez ajouter un titre à la fenêtre de chat ou d'autres éléments ici
+        }
+
+        // Fonction pour fermer la fenêtre de chat
+        function closeChatWindow() {
+            chatUserId = null;
+            document.getElementById('chatModal').style.display = 'none';
+        }
+
+        // Fonction pour envoyer un message
+        function sendMessage() {
+            const message = document.getElementById('messageInput').value;
+            if (message.trim() !== '') {
+                // Envoyer le message au serveur avec l'ID de l'utilisateur avec qui le chat est ouvert
+                socket.emit('sendMessage', { to: chatUserId, message });
+                // Effacer le champ de saisie après l'envoi du message
+                document.getElementById('messageInput').value = '';
+            }
+        }
+
+        // Gérer les messages entrants du serveur
+        socket.on('receiveMessage', ({ from, message }) => {
+            // Afficher le message dans la fenêtre de chat si le chat est ouvert avec l'utilisateur envoyeur
+            if (chatUserId === from) {
+                const chatMessages = document.getElementById('chatMessages');
+                chatMessages.innerHTML += `<div><strong>User ${from}:</strong> ${message}</div>`;
+                // Faire défiler vers le bas pour afficher le nouveau message
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+        });
+
+        // Ajouter la position actuelle de l'utilisateur à la carte
         navigator.geolocation.getCurrentPosition(position => {
             const { latitude, longitude } = position.coords;
             const location = { lat: latitude, lon: longitude };
