@@ -28,13 +28,25 @@ app.post('/users', (req, res) => {
 // WebSocket
 wss.on('connection', ws => {
     console.log('Client connected');
+
     ws.on('message', message => {
         try {
             const data = JSON.parse(message);
+
             if (data.type === 'geolocation') {
+                const { latitude, longitude } = data.payload;
+
+                // Ajoute les coordonnées au socket
+                ws.latitude = latitude;
+                ws.longitude = longitude;
+
+                // Envoie la géolocalisation à tous les autres clients
                 wss.clients.forEach(client => {
                     if (client !== ws && client.readyState === WebSocket.OPEN) {
-                        client.send(JSON.stringify(data));
+                        client.send(JSON.stringify({
+                            type: 'geolocation',
+                            payload: { latitude, longitude }
+                        }));
                     }
                 });
             } else if (data.type === 'videoCallRequest') {
@@ -57,6 +69,7 @@ wss.on('connection', ws => {
             console.error('Invalid JSON message:', message);
         }
     });
+
     ws.on('close', () => {
         console.log('Client disconnected');
     });

@@ -58,7 +58,6 @@
             position: relative;
         }
 
-
         .video-container video {
             width: 100%;
         }
@@ -90,8 +89,8 @@
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script>
         let map, localStream, socket, peerConnection, latitude, longitude;
-        let markers = {};
-
+        let markers = {}; 
+        
         function initMap() {
             map = L.map('map').setView([0, 0], 2);
 
@@ -113,7 +112,6 @@
             longitude = position.coords.longitude;
             const pos = [latitude, longitude];
 
-            // Ajout ou mise à jour du marqueur de l'utilisateur local
             if (!markers['local']) {
                 markers['local'] = L.marker(pos).addTo(map);
             } else {
@@ -139,7 +137,6 @@
             console.error('Error obtaining geolocation', error);
         }
 
-
         function setupWebSocket() {
             socket = new WebSocket('ws://localhost:3000');
             socket.onopen = () => {
@@ -151,7 +148,6 @@
                     const { latitude, longitude } = data.payload;
                     const pos = [latitude, longitude];
 
-                    // Ajout ou mise à jour des marqueurs des autres utilisateurs
                     if (!markers[data.id]) {
                         markers[data.id] = L.marker(pos).addTo(map);
                     } else {
@@ -218,8 +214,6 @@
                 const sensor = new Accelerometer({ frequency: 60 });
                 sensor.addEventListener('reading', () => {
                     console.log(`X: ${sensor.x}, Y: ${sensor.y}, Z: ${sensor.z}`);
-                    // Vous pouvez ajouter du code ici
-                    // pour envoyer les données de l'accéléromètre au serveur
                 });
                 sensor.start();
             } else {
