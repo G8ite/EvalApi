@@ -1,14 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Real-time Map</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <style>
-        #map { height: 500px; }
+        #map {
+            height: 500px;
+        }
     </style>
 </head>
+
 <body>
     <div id="map"></div>
 
@@ -26,19 +30,9 @@
 
             users.forEach(user => {
                 const { id, lat, lon } = user;
-                const marker = L.marker([lat, lon]).addTo(map);
+                let markerColor = (id === socket.id) ? 'red' : 'blue'; // Rouge si l'utilisateur actuel, sinon bleu
+                const marker = L.marker([lat, lon], { icon: L.icon({ iconUrl: `https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-${markerColor}.png` }) }).addTo(map);
                 markers[id] = marker;
-
-                // Ajouter un événement de clic pour ouvrir la fenêtre de chat
-                marker.on('click', () => {
-                    if (id !== socket.id) {
-                        const acceptChat = confirm('Would you like to start a chat with this user?');
-                        if (acceptChat) {
-                            // Emit startChat event with target user's ID
-                            socket.emit('startChat', id);
-                        }
-                    }
-                });
             });
         });
 
@@ -47,7 +41,7 @@
         navigator.geolocation.getCurrentPosition(position => {
             const { latitude, longitude } = position.coords;
             const location = { lat: latitude, lon: longitude };
-            const marker = L.marker([latitude, longitude]).addTo(map);
+            const marker = L.marker([latitude, longitude], { icon: L.icon({ iconUrl: 'https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png' }) }).addTo(map); // Marqueur rouge pour l'utilisateur actuel
             markers[socket.id] = marker;
             socket.emit('updateLocation', location);
         }, error => {
@@ -55,4 +49,5 @@
         });
     </script>
 </body>
+
 </html>
