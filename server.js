@@ -29,8 +29,21 @@ io.on('connection', socket => {
         users[socket.id] = location;
         io.emit('updateUsers', Object.values(users));
     });
-});
 
+    socket.on('startChat', targetUserId => {
+        const targetSocket = io.sockets.connected[targetUserId];
+        if (targetSocket) {
+            targetSocket.emit('chatRequest', socket.id);
+        }
+    });
+
+    socket.on('acceptChat', initiatorUserId => {
+        const initiatorSocket = io.sockets.connected[initiatorUserId];
+        if (initiatorSocket) {
+            initiatorSocket.emit('chatAccepted', socket.id);
+        }
+    });
+});
 
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
