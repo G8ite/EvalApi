@@ -29,18 +29,14 @@ app.post('/users', (req, res) => {
 wss.on('connection', ws => {
     console.log('Client connected');
 
-    wss.clients.forEach(client => {
-        if (client.readyState === WebSocket.OPEN) {
-            client.send(JSON.stringify({ type: 'newUser', message: 'nouvel utilisateur' }));
-        }
-    });
-    
     ws.on('message', message => {
         try {
             const data = JSON.parse(message);
+            console.log('Received message:', data);
 
             if (data.type === 'geolocation') {
                 const { latitude, longitude } = data.payload;
+                console.log(`Geolocation received: ${latitude}, ${longitude}`);
 
                 // Ajoute les coordonnées au socket
                 ws.latitude = latitude;

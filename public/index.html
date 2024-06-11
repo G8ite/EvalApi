@@ -129,6 +129,7 @@
 
             if (socket && socket.readyState === WebSocket.OPEN) {
                 const data = { type: 'geolocation', payload: { latitude, longitude } };
+                console.log('Sending geolocation:', data);
                 socket.send(JSON.stringify(data));
             }
         }
@@ -144,12 +145,11 @@
             };
             socket.onmessage = (event) => {
                 const data = JSON.parse(event.data);
-                if(data.type=='newUser'){
-                    console.log(data.message)
-                }
+                console.log('Received message:', data);
                 if (data.type === 'geolocation') {
                     const { latitude, longitude } = data.payload;
                     const pos = [latitude, longitude];
+                    console.log('Received geolocation:', pos);
 
                     if (!markers[data.id]) {
                         markers[data.id] = L.marker(pos).addTo(map);
