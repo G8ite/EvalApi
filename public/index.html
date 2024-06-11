@@ -28,6 +28,17 @@
                 const { id, lat, lon } = user;
                 const marker = L.marker([lat, lon]).addTo(map);
                 markers[id] = marker;
+
+                // Ajouter un événement de clic pour ouvrir la fenêtre de chat
+                marker.on('click', () => {
+                    if (id !== socket.id) {
+                        const acceptChat = confirm('Would you like to start a chat with this user?');
+                        if (acceptChat) {
+                            // Emit startChat event with target user's ID
+                            socket.emit('startChat', id);
+                        }
+                    }
+                });
             });
         });
 
