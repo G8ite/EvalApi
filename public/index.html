@@ -4,46 +4,61 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Real-time Map with Chat</title>
+    <title>Real-time Map</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <style>
         #map {
             height: 500px;
         }
 
+        /* Overlay */
+        #overlay {
+            display: none;
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+        }
+
+        /* Modal */
         .modal {
             display: none;
             position: fixed;
-            z-index: 1;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            overflow: auto;
-            background-color: rgba(0, 0, 0, 0.5);
-        }
-
-        .modal-content {
-            background-color: #fefefe;
-            margin: 15% auto;
-            padding: 20px;
-            border: 1px solid #888;
+            background-color: white;
             width: 80%;
             max-width: 600px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 20px;
+            z-index: 1001;
         }
 
-        .close {
-            color: #aaa;
-            float: right;
-            font-size: 28px;
-            font-weight: bold;
+        .modal h2 {
+            margin-top: 0;
         }
 
-        .close:hover,
-        .close:focus {
-            color: black;
-            text-decoration: none;
+        .modal-close {
+            position: absolute;
+            top: 10px;
+            right: 10px;
             cursor: pointer;
+        }
+
+        /* Chat messages */
+        #chatMessages {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 10px;
+            border: 1px solid #ccc;
+            padding: 10px;
+        }
+
+        #chatMessages div {
+            margin-bottom: 5px;
         }
     </style>
 </head>
@@ -51,16 +66,18 @@
 <body>
     <div id="map"></div>
 
+    <!-- Overlay -->
+    <div id="overlay"></div>
+
+    <!-- Modal -->
     <div id="chatModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeChatWindow()">&times;</span>
-            <h2>Chat</h2>
-            <div id="chatMessages"></div>
-            <form onsubmit="sendMessage(); return false;">
-                <input type="text" id="messageInput" placeholder="Type your message...">
-                <button type="submit">Send</button>
-            </form>
-        </div>
+        <span class="modal-close" onclick="closeChatWindow()">&times;</span>
+        <h2>Chat</h2>
+        <div id="chatMessages"></div>
+        <form onsubmit="sendMessage(); return false;">
+            <input type="text" id="messageInput" placeholder="Type your message...">
+            <button type="submit">Send</button>
+        </form>
     </div>
 
     <script src="https://unpkg.com/socket.io/client-dist/socket.io.js"></script>
@@ -95,13 +112,14 @@
         // Fonction pour ouvrir une fenêtre de chat avec un utilisateur
         function openChatWindow(userId) {
             chatUserId = userId;
+            document.getElementById('overlay').style.display = 'block';
             document.getElementById('chatModal').style.display = 'block';
-            // Vous pouvez ajouter un titre à la fenêtre de chat ou d'autres éléments ici
         }
 
         // Fonction pour fermer la fenêtre de chat
         function closeChatWindow() {
             chatUserId = null;
+            document.getElementById('overlay').style.display = 'none';
             document.getElementById('chatModal').style.display = 'none';
         }
 
@@ -113,6 +131,12 @@
                 socket.emit('sendMessage', { to: chatUserId, message });
                 // Effacer le champ de saisie après l'envoi du message
                 document.getElementById('messageInput').value = '';
+
+                // Afficher le message dans la fenêtre modale
+                const chatMessages = document.getElementById('chatMessages');
+                chatMessages.innerHTML += `<div><strong>You:</strong> ${message}</div>`;
+                // Faire défiler vers le bas pour afficher le nouveau message
+                chatMessages.scrollTop = chatMessages.scrollHeight;
             }
         }
 
@@ -137,6 +161,7 @@
         }, error => {
             console.error('Error getting location:', error);
         });
+
     </script>
 </body>
 
