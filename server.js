@@ -26,10 +26,11 @@ io.on('connection', socket => {
     });
 
     socket.on('updateLocation', location => {
-        users[socket.id] = { id: socket.id, ...location };
+        users[socket.id] = { id: socket.id, ...location }; // Ajout de l'ID de l'utilisateur
         io.emit('updateUsers', Object.values(users));
     });
 
+    // Gérer la demande de chat
     socket.on('requestChat', targetUserId => {
         io.to(targetUserId).emit('chatRequest', socket.id);
     });
