@@ -31,14 +31,14 @@ io.on('connection', socket => {
     });
 
     socket.on('startChat', targetUserId => {
-        const targetSocket = io.sockets.connected[targetUserId];
+        const targetSocket = io.sockets.sockets[targetUserId];
         if (targetSocket) {
             targetSocket.emit('chatRequest', socket.id);
         }
     });
 
     socket.on('acceptChat', initiatorUserId => {
-        const initiatorSocket = io.sockets.connected[initiatorUserId];
+        const initiatorSocket = io.sockets.sockets[initiatorUserId];
         if (initiatorSocket) {
             initiatorSocket.emit('chatAccepted', socket.id);
         }
