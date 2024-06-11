@@ -89,8 +89,8 @@
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script>
         let map, localStream, socket, peerConnection, latitude, longitude;
-        let markers = {}; 
-        
+        let markers = {};
+
         function initMap() {
             map = L.map('map').setView([0, 0], 2);
 
@@ -108,30 +108,27 @@
         }
 
         function updatePosition(position) {
-            latitude = position.coords.latitude;
-            longitude = position.coords.longitude;
-            const pos = [latitude, longitude];
-
-            if (!markers['local']) {
-                markers['local'] = L.marker(pos).addTo(map);
-            } else {
-                markers['local'].setLatLng(pos);
-            }
-
-            markers['local'].on('click', () => {
-                const confirmation = confirm("Voulez-vous démarrer la vidéo ?");
-                if (confirmation) {
-                    startVideoCall();
+            if (position && position.coords) {
+                latitude = position.coords.latitude;
+                longitude = position.coords.longitude;
+                const pos = [latitude, longitude];
+                const marker = L.marker(pos).addTo(map);
+                marker.on('click', () => {
+                    const confirmation = confirm("Voulez-vous démarrer la vidéo ?");
+                    if (confirmation) {
+                        startVideoCall();
+                    }
+                });
+                map.setView(pos, 13);
+                if (socket.readyState === WebSocket.OPEN) {
+                    const data = JSON.stringify({ type: 'geolocation', latitude, longitude });
+                    socket.send(data);
                 }
-            });
-
-            map.setView(pos, 13);
-
-            if (socket.readyState === WebSocket.OPEN) {
-                const data = { type: 'geolocation', payload: { latitude, longitude } };
-                socket.send(JSON.stringify(data));
+            } else {
+                console.error('Invalid position data:', position);
             }
         }
+
 
         function handleError(error) {
             console.error('Error obtaining geolocation', error);
