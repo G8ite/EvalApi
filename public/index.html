@@ -144,6 +144,9 @@
             };
             socket.onmessage = (event) => {
                 const data = JSON.parse(event.data);
+                if(data.type=='newUser'){
+                    console.log(data.message)
+                }
                 if (data.type === 'geolocation') {
                     const { latitude, longitude } = data.payload;
                     const pos = [latitude, longitude];
