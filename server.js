@@ -9,10 +9,8 @@ const wss = new WebSocket.Server({ server });
 
 const port = process.env.PORT || 3000;
 
-// Servir les fichiers statiques du répertoire 'public'
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Exemple d'API RESTful (vous pouvez l'adapter selon vos besoins)
 app.use(express.json());
 
 let users = [];
@@ -27,27 +25,24 @@ app.post('/users', (req, res) => {
     res.status(201).json(user);
 });
 
-// Configuration du WebSocket
+// WebSocket
 wss.on('connection', ws => {
     console.log('Client connected');
     ws.on('message', message => {
         try {
             const data = JSON.parse(message);
             if (data.type === 'geolocation') {
-                // Gérer les messages de géolocalisation
                 wss.clients.forEach(client => {
                     if (client !== ws && client.readyState === WebSocket.OPEN) {
                         client.send(JSON.stringify(data));
                     }
                 });
             } else if (data.type === 'videoCallRequest') {
-                // Gérer les demandes de chat vidéo
-                const sender = ws; // L'expéditeur de la demande
+                const sender = ws;
                 const payload = data.payload;
                 const senderLatitude = payload.latitude;
                 const senderLongitude = payload.longitude;
 
-                // Recherche du destinataire basée sur la position
                 wss.clients.forEach(client => {
                     if (client.readyState === WebSocket.OPEN) {
                         const clientLatitude = client.latitude;
