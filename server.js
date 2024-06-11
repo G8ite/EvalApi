@@ -1,83 +1,37 @@
 const express = require('express');
 const http = require('http');
-const WebSocket = require('ws');
-const path = require('path');
+const socketIo = require('socket.io');
 
 const app = express();
 const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
+const io = socketIo(server);
 
-const port = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000;
 
-app.use(express.static(path.join(__dirname, 'public')));
+let users = {};
 
-app.use(express.json());
+app.use(express.static('public'));
 
-let users = [];
-
-app.get('/users', (req, res) => {
-    res.json(users);
+app.get('/', (req, res) => {
+    res.sendFile(__dirname + '/index.html');
 });
 
-app.post('/users', (req, res) => {
-    const user = req.body;
-    users.push(user);
-    res.status(201).json(user);
-});
+io.on('connection', socket => {
+    console.log('New user connected');
 
-// WebSocket
-wss.on('connection', ws => {
-    console.log('Client connected');
-
-    ws.on('message', message => {
-        try {
-            const data = JSON.parse(message);
-            console.log('Received message:', data);
-
-            if (data.type === 'geolocation') {
-                const { latitude, longitude } = data.payload;
-                console.log(`Geolocation received: ${latitude}, ${longitude}`);
-
-                // Ajoute les coordonnées au socket
-                ws.latitude = latitude;
-                ws.longitude = longitude;
-
-                // Envoie la géolocalisation à tous les autres clients
-                wss.clients.forEach(client => {
-                    if (client.readyState === WebSocket.OPEN) {
-                        client.send(JSON.stringify({
-                            type: 'geolocation',
-                            id: ws._socket.remoteAddress, // Utiliser l'adresse IP comme identifiant unique
-                            payload: { latitude, longitude }
-                        }));
-                    }
-                });
-            } else if (data.type === 'videoCallRequest') {
-                const sender = ws;
-                const payload = data.payload;
-                const senderLatitude = payload.latitude;
-                const senderLongitude = payload.longitude;
-
-                wss.clients.forEach(client => {
-                    if (client.readyState === WebSocket.OPEN) {
-                        const clientLatitude = client.latitude;
-                        const clientLongitude = client.longitude;
-                        if (client !== sender && clientLatitude && clientLongitude) {
-                            client.send(JSON.stringify({ type: 'videoCallRequest', payload: { senderLatitude, senderLongitude } }));
-                        }
-                    }
-                });
-            }
-        } catch (error) {
-            console.error('Invalid JSON message:', message);
-        }
+    socket.on('disconnect', () => {
+        console.log('User disconnected');
+        delete users[socket.id];
+        io.emit('updateUsers', Object.values(users));
     });
 
-    ws.on('close', () => {
-        console.log('Client disconnected');
+    socket.on('updateLocation', location => {
+        users[socket.id] = location;
+        io.emit('updateUsers', Object.values(users));
     });
 });
 
-server.listen(port, () => {
-    console.log(`Server is running on http://localhost:${port}`);
+
+server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
 });
