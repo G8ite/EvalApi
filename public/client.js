@@ -108,6 +108,7 @@ const startCall = (room, otherUserId) => {
 
     navigator.mediaDevices.getUserMedia({ video: true, audio: true })
         .then(stream => {
+            console.log('Local stream obtained');
             document.getElementById('localVideo').srcObject = stream;
             localStream = stream;
 
@@ -122,19 +123,25 @@ const startCall = (room, otherUserId) => {
             });
             peerConnections[room] = peerConnection;
 
-            stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
+            stream.getTracks().forEach(track => {
+                peerConnection.addTrack(track, stream);
+                console.log(`Track added: ${track.kind}`);
+            });
 
             peerConnection.onicecandidate = event => {
                 if (event.candidate) {
+                    console.log('Sending ICE candidate');
                     socket.emit('webrtcSignal', { target: otherUserId, signal: event.candidate });
                 }
             };
 
             peerConnection.ontrack = event => {
+                console.log('Remote stream received');
                 document.getElementById('remoteVideo').srcObject = event.streams[0];
             };
 
             peerConnection.oniceconnectionstatechange = () => {
+                console.log(`ICE connection state: ${peerConnection.iceConnectionState}`);
                 if (peerConnection.iceConnectionState === 'disconnected') {
                     videoCallModal.style.display = "none";
                 }
@@ -143,14 +150,18 @@ const startCall = (room, otherUserId) => {
             socket.on('webrtcSignal', ({ signal, from }) => {
                 if (from === otherUserId) {
                     if (signal.type === 'offer') {
+                        console.log('Received SDP offer');
                         peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
                         peerConnection.createAnswer().then(answer => {
                             peerConnection.setLocalDescription(answer);
+                            console.log('Sending SDP answer');
                             socket.emit('webrtcSignal', { target: otherUserId, signal: answer });
                         });
                     } else if (signal.type === 'answer') {
+                        console.log('Received SDP answer');
                         peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
                     } else if (signal.candidate) {
+                        console.log('Received ICE candidate');
                         peerConnection.addIceCandidate(new RTCIceCandidate(signal));
                     }
                 }
@@ -159,6 +170,7 @@ const startCall = (room, otherUserId) => {
             if (otherUserId) {
                 peerConnection.createOffer().then(offer => {
                     peerConnection.setLocalDescription(offer);
+                    console.log('Sending SDP offer');
                     socket.emit('webrtcSignal', { target: otherUserId, signal: offer });
                 });
             }
