@@ -1,307 +1,232 @@
-<!DOCTYPE html>
-<html lang="en">
+video>
+</div>
+<div id="remoteVideoContainer">
+    <video id="remoteVideo" autoplay></video>
+</div>
+<button id="hangupBtn">Hang Up</button>
+</div>
+</div>
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Real-time Map</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-    <style>
-        #map {
-            height: 500px;
-            position: relative;
-            z-index: 1;
-        }
+<script src="https://unpkg.com/socket.io/client-dist/socket.io.js"></script>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+    const socket = io();
+    const map = L.map('map').setView([0, 0], 2);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            overflow: auto;
-            background-color: rgba(0, 0, 0, 0.4);
-        }
+    const Bleu = '#0000FF';
+    const Rouge = '#FF0000';
 
-        .modal-content {
-            background-color: #fefefe;
-            margin: 15% auto;
-            padding: 20px;
-            border: 1px solid #888;
-            width: 30%;
-        }
+    const markerHtmlStylesBleu = `
+background-color: ${Bleu};
+width: 3rem;
+height: 3rem;
+display: block;
+left: -1.5rem;
+top: -1.5rem;
+position: relative;
+border-radius: 3rem 3rem 0;
+transform: rotate(45deg);
+border: 1px solid #FFFFFF`;
+    const markerHtmlStylesRouge = `
+background-color: ${Rouge};
+width: 3rem;
+height: 3rem;
+display: block;
+left: -1.5rem;
+top: -1.5rem;
+position: relative;
+border-radius: 3rem 3rem 0;
+transform: rotate(45deg);
+border: 1px solid #FFFFFF`;
 
-        .close {
-            color: #aaa;
-            float: right;
-            font-size: 28px;
-            font-weight: bold;
-        }
+    const blueIcon = L.divIcon({
+        className: "my-custom-pin",
+        iconAnchor: [0, 24],
+        labelAnchor: [-6, 0],
+        popupAnchor: [0, -36],
+        html: `<span style="${markerHtmlStylesBleu}" />`
+    });
+    const redIcon = L.divIcon({
+        className: "my-custom-pin",
+        iconAnchor: [0, 24],
+        labelAnchor: [-6, 0],
+        popupAnchor: [0, -36],
+        html: `<span style="${markerHtmlStylesRouge}" />`
+    });
 
-        .close:hover,
-        .close:focus {
-            color: black;
-            text-decoration: none;
-            cursor: pointer;
-        }
+    socket.on('updateUsers', users => {
+        console.log("Received updated users:", users);
+        Object.values(markers).forEach(marker => map.removeLayer(marker));
+        markers = {};
 
-        button {
-            background-color: #4CAF50;
-            color: white;
-            padding: 14px 20px;
-            margin: 8px 0;
-            border: none;
-            cursor: pointer;
-            width: 100%;
-        }
+        users.forEach(user => {
+            const { id, lat, lon } = user;
+            console.log("User id:", id);
+            console.log("Socket id:", socket.id);
+            const markerIcon = id === socket.id ? redIcon : blueIcon;
+            const marker = L.marker([lat, lon], { icon: markerIcon }).addTo(map);
+            markers[id] = marker;
 
-        button:hover {
-            opacity: 0.8;
-        }
+            marker.on('click', () => {
+                if (id !== socket.id) {
+                    // Emit chat request to server
+                    socket.emit('requestChat', id);
 
-        #yesButton {
-            background-color: #4CAF50;
-        }
-
-        #noButton {
-            background-color: #f44336;
-        }
-
-        #video-chat {
-            display: none;
-            position: fixed;
-            z-index: 1001;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            overflow: auto;
-            background-color: rgba(0, 0, 0, 0.8);
-        }
-
-        #localVideo,
-        #remoteVideo {
-            width: 45%;
-            height: 45%;
-            margin: 2%;
-            background-color: black;
-        }
-    </style>
-</head>
-
-<body>
-    <div id="map"></div>
-
-    <div id="modal" class="modal">
-        <div class="modal-content">
-            <span class="close">&times;</span>
-            <p>Acceptez-vous d'être contacté?</p>
-            <button id="acceptBtn">Oui</button>
-            <button id="declineBtn">Non</button>
-        </div>
-    </div>
-
-    <div id="videoCallModal" class="modal">
-        <div class="modal-content">
-            <span class="close">&times;</span>
-            <div id="localVideoContainer">
-                <video id="localVideo" autoplay muted></video>
-            </div>
-            <div id="remoteVideoContainer">
-                <video id="remoteVideo" autoplay></video>
-            </div>
-            <button id="hangupBtn">Hang Up</button>
-        </div>
-    </div>
-
-    <script src="https://unpkg.com/socket.io/client-dist/socket.io.js"></script>
-    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-    <script>
-        const socket = io();
-        const map = L.map('map').setView([0, 0], 2);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-        const Bleu = '#0000FF';
-        const Rouge = '#FF0000';
-
-        const markerHtmlStylesBleu = `
-            background-color: ${Bleu};
-            width: 3rem;
-            height: 3rem;
-            display: block;
-            left: -1.5rem;
-            top: -1.5rem;
-            position: relative;
-            border-radius: 3rem 3rem 0;
-            transform: rotate(45deg);
-            border: 1px solid #FFFFFF`;
-        const markerHtmlStylesRouge = `
-            background-color: ${Rouge};
-            width: 3rem;
-            height: 3rem;
-            display: block;
-            left: -1.5rem;
-            top: -1.5rem;
-            position: relative;
-            border-radius: 3rem 3rem 0;
-            transform: rotate(45deg);
-            border: 1px solid #FFFFFF`;
-
-        const blueIcon = L.divIcon({
-            className: "my-custom-pin",
-            iconAnchor: [0, 24],
-            labelAnchor: [-6, 0],
-            popupAnchor: [0, -36],
-            html: `<span style="${markerHtmlStylesBleu}" />`
+                    // Emit event to the server to notify the clicked user
+                    socket.emit('userClicked', id);
+                }
+            });
         });
-        const redIcon = L.divIcon({
-            className: "my-custom-pin",
-            iconAnchor: [0, 24],
-            labelAnchor: [-6, 0],
-            popupAnchor: [0, -36],
-            html: `<span style="${markerHtmlStylesRouge}" />`
-        });
+    });
 
-        socket.on('updateUsers', users => {
-            console.log("Received updated users:", users);
-            Object.values(markers).forEach(marker => map.removeLayer(marker));
-            markers = {};
+    socket.on('showModal', (otherUserId) => {
+        const modal = document.getElementById("modal");
+        modal.style.display = "block";
+        const acceptBtn = document.getElementById('acceptBtn');
+        const declineBtn = document.getElementById('declineBtn');
 
-            users.forEach
-                (user => {
-                    const { id, lat, lon } = user;
-                    console.log("User id:", id);
-                    console.log("Socket id:", socket.id);
-                    const markerIcon = id === socket.id ? redIcon : blueIcon;
-                    const marker = L.marker([lat, lon], { icon: markerIcon }).addTo(map);
-                    markers[id] = marker;
-
-                    marker.on('click', () => {
-                        if (id !== socket.id) {
-                            // Emit chat request to server
-                            socket.emit('requestChat', id);
-
-                            // Emit event to the server to notify the clicked user
-                            socket.emit('userClicked', id);
-                        }
-                    });
-                });
-        });
-
-        socket.on('showModal', (otherUserId) => {
-            const modal = document.getElementById("modal");
-            modal.style.display = "block";
-            const acceptBtn = document.getElementById('acceptBtn');
-            const declineBtn = document.getElementById('declineBtn');
-
-            acceptBtn.onclick = function () {
-                modal.style.display = "none";
-                socket.emit('acceptChat', otherUserId);
-                startCall(otherUserId);
-            };
-
-            declineBtn.onclick = function () {
-                modal.style.display = "none";
-            };
-        });
-
-        const hangupBtn = document.getElementById('hangupBtn');
-        hangupBtn.onclick = function () {
-            // End the video call
-            endCall();
+        acceptBtn.onclick = function () {
+            modal.style.display = "none";
+            socket.emit('acceptChat', otherUserId);
+            startCall(otherUserId);
         };
 
-        function endCall() {
-            // Stop local video stream
-            stopLocalStream();
-            // Close WebRTC connection
-            if (peerConnection) {
-                peerConnection.close();
-            }
-            // Hide video call modal
-            videoCallModal.style.display = "none";
-        }
-
-        socket.on('chatRequested', (requesterId) => {
-            const modal = document.getElementById("modal");
-            modal.style.display = "block";
-            const acceptBtn = document.getElementById('acceptBtn');
-            const declineBtn = document.getElementById('declineBtn');
-
-            acceptBtn.onclick = function () {
-                modal.style.display = "none";
-                socket.emit('acceptChat', requesterId);
-                startCall(requesterId);
-            };
-
-            declineBtn.onclick = function () {
-                modal.style.display = "none";
-                socket.emit('declineChat', requesterId);
-            };
-        });
-
-        let markers = {};
-        navigator.geolocation.getCurrentPosition(position => {
-            const { latitude, longitude } = position.coords;
-            const location = { lat: latitude, lon: longitude };
-            const marker = L.marker([latitude, longitude]).addTo(map);
-            markers[socket.id] = marker;
-            socket.emit('updateLocation', location);
-        }, error => {
-            console.error('Error getting location:', error);
-        });
-
-        var modal = document.getElementById("modal");
-        var span = document.getElementsByClassName("close")[0];
-
-        span.onclick = function () {
+        declineBtn.onclick = function () {
             modal.style.display = "none";
         };
+    });
 
-        window.onclick = function (event) {
-            if (event.target == modal) {
-                modal.style.display = "none";
-            }
-        };
+    const hangupBtn = document.getElementById('hangupBtn');
+    hangupBtn.onclick = function () {
+        endCall();
+    };
 
-        // WebRTC setup
-        let localStream;
-        let peerConnection;
-        const videoCallModal = document.getElementById("videoCallModal");
-        const localVideo = document.getElementById("localVideo");
-        const remoteVideo = document.getElementById("remoteVideo");
-        const iceServers = {
-            iceServers: [
-                {
-                    urls: "stun:stun.l.google.com:19302"
-                }
-            ]
-        };
-
-        async function startLocalStream() {
-            try {
-                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                localVideo.srcObject = localStream;
-            } catch (error) {
-                console.error("Error accessing media devices.", error);
-            }
+    function endCall() {
+        stopLocalStream();
+        if (peerConnection) {
+            peerConnection.close();
         }
+        videoCallModal.style.display = "none";
+    }
 
-        async function startCall(otherUserId) {
-            // Show the video call modal
-            videoCallModal.style.display = "block";
-            // Start the local media stream
-            await startLocalStream();
-            // Create a WebRTC connection with the other user
+    socket.on('chatRequested', (requesterId) => {
+        const modal = document.getElementById("modal");
+        modal.style.display = "block";
+        const acceptBtn = document.getElementById('acceptBtn');
+        const declineBtn = document.getElementById('declineBtn');
+
+        acceptBtn.onclick = function () {
+            modal.style.display = "none";
+            socket.emit('acceptChat', requesterId);
+            startCall(requesterId);
+        };
+
+        declineBtn.onclick = function () {
+            modal.style.display = "none";
+            socket.emit('declineChat', requesterId);
+        };
+    });
+
+    let markers = {};
+    navigator.geolocation.getCurrentPosition(position => {
+        const { latitude, longitude } = position.coords;
+        const location = { lat: latitude, lon: longitude };
+        const marker = L.marker([latitude, longitude]).addTo(map);
+        markers[socket.id] = marker;
+        socket.emit('updateLocation', location);
+    }, error => {
+        console.error('Error getting location:', error);
+    });
+
+    var modal = document.getElementById("modal");
+    var span = document.getElementsByClassName("close")[0];
+
+    span.onclick = function () {
+        modal.style.display = "none";
+    };
+
+    window.onclick = function (event) {
+        if (event.target == modal) {
+            modal.style.display = "none";
+        }
+    };
+
+    let localStream;
+    let peerConnection;
+    const videoCallModal = document.getElementById("videoCallModal");
+    const localVideo = document.getElementById("localVideo");
+    const remoteVideo = document.getElementById("remoteVideo");
+    const iceServers = {
+        iceServers: [
+            {
+                urls: "stun:stun.l.google.com:19302"
+            }
+        ]
+    };
+
+    async function startLocalStream() {
+        try {
+            localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            localVideo.srcObject = localStream;
+        } catch (error) {
+            console.error("Error accessing media devices.", error);
+        }
+    }
+
+    async function startCall(otherUserId) {
+        videoCallModal.style.display = "block";
+        await startLocalStream();
+
+        peerConnection = new RTCPeerConnection(iceServers);
+        localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+        peerConnection.onicecandidate = event => {
+            if (event.candidate) {
+                socket.emit('webrtcSignal', {
+                    target: otherUserId,
+                    signal: {
+                        type: 'candidate',
+                        candidate: event.candidate
+                    }
+                });
+            }
+        };
+
+        peerConnection.ontrack = event => {
+            if (event.streams && event.streams[0]) {
+                remoteVideo.srcObject = event.streams[0];
+            }
+        };
+
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+        socket.emit('webrtcSignal', {
+            target: otherUserId,
+            signal: {
+                type: 'offer',
+                sdp: offer.sdp
+            }
+        });
+    }
+
+    socket.on('chatAccepted', async (otherUserId) => {
+        videoCallModal.style.display = "block";
+        await startLocalStream();
+        await startCall(otherUserId);
+    });
+
+    socket.on('webrtcSignal', async (data) => {
+        const { signal, from } = data;
+
+        if (!peerConnection) {
             peerConnection = new RTCPeerConnection(iceServers);
             localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
             peerConnection.onicecandidate = event => {
                 if (event.candidate) {
                     socket.emit('webrtcSignal', {
-                        target: otherUserId,
+                        target: from,
                         signal: {
                             type: 'candidate',
                             candidate: event.candidate
@@ -315,68 +240,26 @@
                     remoteVideo.srcObject = event.streams[0];
                 }
             };
-
-            const offer = await peerConnection.createOffer();
-            await peerConnection.setLocalDescription(offer);
-            socket.emit('webrtcSignal', {
-                target: otherUserId,
-                signal: {
-                    type: 'offer',
-                    sdp: offer.sdp
-                }
-            });
         }
 
-        socket.on('chatAccepted', async (otherUserId) => {
-            videoCallModal.style.display = "block";
-            await startLocalStream();
-            await startCall(otherUserId);
-        });
-
-        socket.on('webrtcSignal', async (data) => {
-            const { signal, from } = data;
-
-            if (!peerConnection) {
-                peerConnection = new RTCPeerConnection(iceServers);
-                localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-
-                peerConnection.onicecandidate = event => {
-                    if (event.candidate) {
-                        socket.emit('webrtcSignal', {
-                            target: from,
-                            signal: {
-                                type: 'candidate',
-                                candidate: event.candidate
-                            }
-                        });
-                    }
-                };
-
-                peerConnection.ontrack = event => {
-                    if (event.streams && event.streams[0]) {
-                        remoteVideo.srcObject = event.streams[0];
-                    }
-                };
-            }
-
-            if (signal.type === 'offer') {
-                await peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
-                const answer = await peerConnection.createAnswer();
-                await peerConnection.setLocalDescription(answer);
-                socket.emit('webrtcSignal', {
-                    target: from,
-                    signal: {
-                        type: 'answer',
-                        sdp: answer.sdp
-                    }
-                });
-            } else if (signal.type === 'answer') {
-                await peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
-            } else if (signal.type === 'candidate') {
-                await peerConnection.addIceCandidate(new RTCIceCandidate(signal.candidate));
-            }
-        });
-    </script>
+        if (signal.type === 'offer') {
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+            socket.emit('webrtcSignal', {
+                target: from,
+                signal: {
+                    type: 'answer',
+                    sdp: answer.sdp
+                }
+            });
+        } else if (signal.type === 'answer') {
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
+        } else if (signal.type === 'candidate') {
+            await peerConnection.addIceCandidate(new RTCIceCandidate(signal.candidate));
+        }
+    });
+</script>
 </body>
 
 </html>
