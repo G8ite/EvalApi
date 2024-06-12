@@ -10,6 +10,8 @@
     <style>
         #map {
             height: 500px;
+            position: relative;
+            z-index: 1;
         }
 
         .user-marker {
@@ -22,7 +24,7 @@
         .modal {
             display: none;
             position: fixed;
-            z-index: 1;
+            z-index: 1000;
             left: 0;
             top: 0;
             width: 100%;
@@ -31,6 +33,7 @@
             background-color: rgba(0, 0, 0, 0.4);
         }
 
+        /* Modal Content */
         .modal-content {
             background-color: #fefefe;
             margin: 15% auto;
@@ -39,6 +42,7 @@
             width: 30%;
         }
 
+        /* The Close Button */
         .close {
             color: #aaa;
             float: right;
@@ -53,6 +57,7 @@
             cursor: pointer;
         }
 
+        /* Modal Buttons */
         button {
             background-color: #4CAF50;
             color: white;
@@ -92,114 +97,107 @@
     <script src="https://unpkg.com/socket.io/client-dist/socket.io.js"></script>
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', (event) => {
-            const socket = io();
-            const map = L.map('map').setView([0, 0], 2);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        const socket = io();
+        const map = L.map('map').setView([0, 0], 2);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-            const Bleu = '#0000FF';
-            const Rouge = '#FF0000';
+        const Bleu = '#0000FF'
+        const Rouge = '#FF0000'
 
-            const markerHtmlStylesBleu = `
-                background-color: ${Bleu};
-                width: 3rem;
-                height: 3rem;
-                display: block;
-                left: -1.5rem;
-                top: -1.5rem;
-                position: relative;
-                border-radius: 3rem 3rem 0;
-                transform: rotate(45deg);
-                border: 1px solid #FFFFFF`;
-            const markerHtmlStylesRouge = `
-                background-color: ${Rouge};
-                width: 3rem;
-                height: 3rem;
-                display: block;
-                left: -1.5rem;
-                top: -1.5rem;
-                position: relative;
-                border-radius: 3rem 3rem 0;
-                transform: rotate(45deg);
-                border: 1px solid #FFFFFF`;
+        const markerHtmlStylesBleu = `
+            background-color: ${Bleu};
+            width: 3rem;
+            height: 3rem;
+            display: block;
+            left: -1.5rem;
+            top: -1.5rem;
+            position: relative;
+            border-radius: 3rem 3rem 0;
+            transform: rotate(45deg);
+            border: 1px solid #FFFFFF`
+        const markerHtmlStylesRouge = `
+            background-color: ${Rouge};
+            width: 3rem;
+            height: 3rem;
+            display: block;
+            left: -1.5rem;
+            top: -1.5rem;
+            position: relative;
+            border-radius: 3rem 3rem 0;
+            transform: rotate(45deg);
+            border: 1px solid #FFFFFF`
 
-            const blueIcon = L.divIcon({
-                className: "my-custom-pin",
-                iconAnchor: [0, 24],
-                labelAnchor: [-6, 0],
-                popupAnchor: [0, -36],
-                html: `<span style="${markerHtmlStylesBleu}" />`
-            });
-            const redIcon = L.divIcon({
-                className: "my-custom-pin",
-                iconAnchor: [0, 24],
-                labelAnchor: [-6, 0],
-                popupAnchor: [0, -36],
-                html: `<span style="${markerHtmlStylesRouge}" />`
-            });
+        const blueIcon = L.divIcon({
+            className: "my-custom-pin",
+            iconAnchor: [0, 24],
+            labelAnchor: [-6, 0],
+            popupAnchor: [0, -36],
+            html: `<span style="${markerHtmlStylesBleu}" />`
+        })
+        const redIcon = L.divIcon({
+            className: "my-custom-pin",
+            iconAnchor: [0, 24],
+            labelAnchor: [-6, 0],
+            popupAnchor: [0, -36],
+            html: `<span style="${markerHtmlStylesRouge}" />`
+        })
 
-            let markers = {};
+        socket.on('updateUsers', users => {
+            console.log("Received updated users:", users);
+            Object.values(markers).forEach(marker => map.removeLayer(marker));
+            markers = {};
 
-            socket.on('updateUsers', users => {
-                console.log("Received updated users:", users);
-                Object.values(markers).forEach(marker => map.removeLayer(marker));
-                markers = {};
+            users.forEach(user => {
+                const { id, lat, lon } = user;
+                console.log("User id:", id);
+                console.log("Socket id:", socket.id);
+                const markerIcon = id === socket.id ? redIcon : blueIcon;
+                const marker = L.marker([lat, lon], { icon: markerIcon }).addTo(map);
+                markers[id] = marker;
 
-                users.forEach(user => {
-                    const { id, lat, lon } = user;
-                    console.log("User id:", id);
-                    console.log("Socket id:", socket.id);
-                    const markerIcon = id === socket.id ? redIcon : blueIcon;
-                    const marker = L.marker([lat, lon], { icon: markerIcon }).addTo(map);
-                    markers[id] = marker;
+                marker.on('click', () => {
+                    if (id !== socket.id) {
+                        modal.style.display = "block";
+                        const acceptBtn = document.getElementById('acceptBtn');
+                        const declineBtn = document.getElementById('declineBtn');
 
-                    marker.on('click', () => {
-                        if (id !== socket.id) {
-                            showModal(id);
+                        acceptBtn.onclick = function () {
+                            modal.style.display = "none";
+                            socket.emit('requestChat', id);
                         }
-                    });
+
+                        declineBtn.onclick = function () {
+                            modal.style.display = "none";
+                        }
+                    }
                 });
             });
+        });
 
-            navigator.geolocation.getCurrentPosition(position => {
-                const { latitude, longitude } = position.coords;
-                const location = { lat: latitude, lon: longitude };
-                const marker = L.marker([latitude, longitude]).addTo(map);
-                markers[socket.id] = marker;
-                socket.emit('updateLocation', location);
-            }, error => {
-                console.error('Error getting location:', error);
-            });
+        let markers = {};
+        navigator.geolocation.getCurrentPosition(position => {
+            const { latitude, longitude } = position.coords;
+            const location = { lat: latitude, lon: longitude };
+            const marker = L.marker([latitude, longitude]).addTo(map);
+            markers[socket.id] = marker;
+            socket.emit('updateLocation', location);
+        }, error => {
+            console.error('Error getting location:', error);
+        });
 
-            const modal = document.getElementById("modal");
+        var modal = document.getElementById("modal");
 
-            const showModal = (id) => {
-                modal.style.display = "block";
-                const acceptBtn = document.getElementById('acceptBtn');
-                const declineBtn = document.getElementById('declineBtn');
+        var span = document.getElementsByClassName("close")[0];
 
-                acceptBtn.onclick = function () {
-                    modal.style.display = "none";
-                    socket.emit('requestChat', id);
-                }
+        span.onclick = function () {
+            modal.style.display = "none";
+        }
 
-                declineBtn.onclick = function () {
-                    modal.style.display = "none";
-                }
-            };
-
-            const span = document.getElementsByClassName("close")[0];
-
-            span.onclick = function () {
+        window.onclick = function (event) {
+            if (event.target == modal) {
                 modal.style.display = "none";
             }
-
-            window.onclick = function (event) {
-                if (event.target == modal) {
-                    modal.style.display = "none";
-                }
-            }
-        });
+        }
     </script>
 </body>
 
