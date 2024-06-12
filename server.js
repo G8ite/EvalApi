@@ -58,6 +58,12 @@ io.on('connection', socket => {
         const { target, signal } = data;
         io.to(target).emit('webrtcSignal', { signal, from: socket.id }); // Émission du signal WebRTC vers le destinataire
     });
+
+    // Gestion de l'événement 'hangupCall' côté serveur
+    socket.on('hangupCall', () => {
+        // Émettre l'événement à tous les clients, y compris l'émetteur initial
+        io.emit('hangupCall');
+    });
 });
 
 // Démarrage du serveur sur le port spécifié
