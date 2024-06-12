@@ -9,6 +9,7 @@ const io = socketIo(server); // Initialisation de Socket.IO avec le serveur HTTP
 const PORT = process.env.PORT || 3000; // Définition du port du serveur
 
 let users = {}; // Stockage des utilisateurs connectés
+let rooms = new Map(); // Stockage des rooms pour les appels
 
 // Middleware pour servir les fichiers statiques du dossier 'public'
 app.use(express.static('public'));
@@ -47,9 +48,15 @@ io.on('connection', socket => {
 
     // Gestionnaire d'événements pour l'acceptation d'un chat
     socket.on('acceptChat', (requesterId) => {
-        io.to(requesterId).emit('chatAccepted', socket.id); // Émission de l'événement pour notifier le demandeur que le chat est accepté
-        io.to(socket.id).emit('chatAccepted', requesterId); // Émission de l'événement pour notifier l'utilisateur actuel de l'acceptation du chat
-        io.emit('showModal', [requesterId, socket.id]); // Émission de l'événement pour afficher une modale chez tous les utilisateurs
+        // Créez une room unique pour l'appel
+        const roomId = `room-${socket.id}-${requesterId}`;
+        rooms.set(roomId, true);
+        
+        // Joindre les deux utilisateurs à la même room
+        socket.join(roomId);
+        io.to(requesterId).emit('chatAccepted', roomId); // Émission de l'événement pour notifier le demandeur que le chat est accepté
+        io.to(socket.id).emit('chatAccepted', roomId); // Émission de l'événement pour notifier l'utilisateur actuel de l'acceptation du chat
+        io.to(roomId).emit('showModal', roomId); // Émission de l'événement pour afficher une modale chez tous les utilisateurs
     });
 
     // Gestionnaire d'événements pour les signaux WebRTC
