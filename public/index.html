@@ -200,8 +200,8 @@
             });
         });
 
-        socket.on('showModal', (userIds) => {
-            if (userIds.includes(socket.id)) { // Vérifie si l'ID de l'utilisateur actuel est inclus dans la liste des IDs reçus
+        socket.on('showModal', (otherUserId) => {
+            if (userIds.includes(socket.id)) {
                 const modal = document.getElementById("modal");
                 modal.style.display = "block";
                 const acceptBtn = document.getElementById('acceptBtn');
@@ -209,8 +209,8 @@
 
                 acceptBtn.onclick = function () {
                     modal.style.display = "none";
-                    socket.emit('acceptChat', userIds); // Émet l'acceptation du chat avec les deux utilisateurs concernés
-                    startCall(userIds); // Démarrer l'appel avec les deux utilisateurs
+                    socket.emit('acceptChat', otherUserId);
+                    startCall(otherUserId);
                 };
 
                 declineBtn.onclick = function () {
@@ -218,7 +218,6 @@
                 };
             }
         });
-
 
         socket.on('chatRequested', (requesterId) => {
             const modal = document.getElementById("modal");
@@ -241,62 +240,55 @@
             startCall(otherUserId);
         });
 
-        socket.on('startCall', (userIds) => {
-            userIds.forEach(userId => {
-                if (userId !== socket.id) { // Évitez de créer une connexion avec soi-même
-                    startCall(userId);
-                }
-            });
-        });
-
-        function startCall(userIds) {
-            // Demander l'accès à la caméra et au micro de l'utilisateur
+        const startCall = (otherUserId) => {
+            const videoCallModal = document.getElementById("videoCallModal");
+            videoCallModal.style.display = "block";
             navigator.mediaDevices.getUserMedia({ video: true, audio: true })
                 .then(stream => {
-                    document.getElementById('localVideo').srcObject = stream; // Afficher la vidéo locale
-                    const peerConnection = new RTCPeerConnection(); // Créer une nouvelle connexion peer
-                    stream.getTracks().forEach(track => peerConnection.addTrack(track, stream)); // Ajouter des pistes à la connexion
-                    peerConnection.ontrack = event => {
-                        document.getElementById('remoteVideo').srcObject = event.streams[0]; // Afficher la vidéo distante
-                    };
+                    document.getElementById('localVideo').srcObject = stream;
+                    const peerConnection = new RTCPeerConnection();
+                    stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
 
-                    // Écouter les événements ICE et envoyer des signaux à l'autre utilisateur
                     peerConnection.onicecandidate = event => {
                         if (event.candidate) {
-                            userIds.forEach(userId => {
-                                if (userId !== socket.id) { // Évitez d'envoyer à soi-même
-                                    socket.emit('webrtcSignal', { target: userId, signal: event.candidate });
-                                }
-                            });
+                            socket.emit('webrtcSignal', { target: otherUserId, signal: event.candidate });
                         }
                     };
 
-                    // Créer une offre SDP et définir la description locale de la session
-                    peerConnection.createOffer()
-                        .then(offer => peerConnection.setLocalDescription(offer))
-                        .then(() => {
-                            // Envoyer l'offre SDP à l'autre utilisateur
-                            userIds.forEach(userId => {
-                                if (userId !== socket.id) { // Évitez d'envoyer à soi-même
-                                    socket.emit('webrtcSignal', { target: userId, signal: peerConnection.localDescription });
-                                }
-                            });
-                        })
-                        .catch(error => {
-                            console.error('Error creating SDP offer:', error);
-                        });
+                    peerConnection.ontrack = event => {
+                        document.getElementById('remoteVideo').srcObject = event.streams[0];
+                    };
 
-                    // Gérer le bouton de fin d'appel
+                    socket.on('webrtcSignal', ({ signal, from }) => {
+                        if (from === otherUserId) {
+                            if (signal.type === 'offer') {
+                                peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
+                                peerConnection.createAnswer().then(answer => {
+                                    peerConnection.setLocalDescription(answer);
+                                    socket.emit('webrtcSignal', { target: otherUserId, signal: answer });
+                                });
+                            } else if (signal.type === 'answer') {
+                                peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
+                            } else if (signal.candidate) {
+                                peerConnection.addIceCandidate(new RTCIceCandidate(signal));
+                            }
+                        }
+                    });
+
+                    peerConnection.createOffer().then(offer => {
+                        peerConnection.setLocalDescription(offer);
+                        socket.emit('webrtcSignal', { target: otherUserId, signal: offer });
+                    });
+
                     document.getElementById('hangupBtn').onclick = () => {
-                        peerConnection.close(); // Fermer la connexion
-                        const videoCallModal = document.getElementById("videoCallModal");
-                        videoCallModal.style.display = "none"; // Masquer la modale de la vidéo
+                        peerConnection.close();
+                        videoCallModal.style.display = "none";
                     };
                 })
                 .catch(error => {
                     console.error('Error accessing media devices.', error);
                 });
-        }
+        };
 
         const modal = document.getElementById("modal");
         const modalCloseBtn = modal.querySelector('.close');
