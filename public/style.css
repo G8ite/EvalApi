@@ -5,12 +5,14 @@
     text-decoration: none;
     list-style: none;
 }
-body{
+
+body {
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
 }
+
 #presentation {
     background-color: #f8f9fa;
     border: 1px solid #ced4da;
@@ -33,7 +35,7 @@ body{
 
 /* Styles pour la carte */
 #map {
-    height: calc(100vh - 120px); 
+    height: calc(100vh - 120px);
     width: 99vw;
     position: relative;
     z-index: 1;
@@ -116,4 +118,19 @@ button:hover {
     height: 45%;
     margin: 2%;
     background-color: black;
+}
+
+/* Media queries pour la version mobile */
+@media only screen and (max-width: 600px) {
+    #presentation {
+        padding: 10px;
+    }
+
+    #map {
+        height: calc(100vh - 150px);
+    }
+
+    .modal-content {
+        width: 80%;
+    }
 }
