@@ -109,6 +109,7 @@ const startCall = (room, otherUserId) => {
     navigator.mediaDevices.getUserMedia({ video: true, audio: true })
         .then(stream => {
             console.log('Local stream obtained');
+            console.log(stream)
             document.getElementById('localVideo').srcObject = stream;
             localStream = stream;
 
