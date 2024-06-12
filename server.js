@@ -17,22 +17,33 @@ app.get('/', (req, res) => {
 });
 
 io.on('connection', socket => {
-    console.log('New user connected');
-
-    socket.on('disconnect', () => {
-        console.log('User disconnected');
-        delete users[socket.id];
-        io.emit('updateUsers', Object.values(users));
-    });
+    console.log('New user connected:', socket.id);
 
     socket.on('updateLocation', location => {
-        users[socket.id] = { id: socket.id, ...location };
-        io.emit('updateUsers', Object.values(users));
+        socket.broadcast.emit('updateUsers', {
+            id: socket.id,
+            lat: location.lat,
+            lon: location.lon
+        });
     });
 
-    // Gérer la demande de chat
     socket.on('requestChat', targetUserId => {
-        io.to(targetUserId).emit('chatRequest', socket.id);
+        // Relay chat request to the targeted user
+        io.to(targetUserId).emit('chatRequested');
+    });
+
+    socket.on('acceptChat', () => {
+        // Handle chat acceptance logic here
+        // For example, start a chat session between users
+    });
+
+    socket.on('declineChat', () => {
+        // Handle chat decline logic here
+        // For example, notify the requester
+    });
+
+    socket.on('disconnect', () => {
+        console.log('User disconnected:', socket.id);
     });
 });
 
