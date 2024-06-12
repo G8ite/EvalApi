@@ -81,7 +81,8 @@
             background-color: rgba(0, 0, 0, 0.8);
         }
 
-        #localVideo, #remoteVideo {
+        #localVideo,
+        #remoteVideo {
             width: 45%;
             height: 45%;
             margin: 2%;
@@ -188,6 +189,8 @@
             acceptBtn.onclick = function () {
                 modal.style.display = "none";
                 socket.emit('acceptChat');
+                startCall(otherUserId);
+
             };
 
             declineBtn.onclick = function () {
@@ -259,9 +262,14 @@
         }
 
         async function startCall(otherUserId) {
+            // Show the video chat modal
+            videoChat.style.display = "block";
+            // Start the local media stream
+            await startLocalStream();
+            // Create a WebRTC connection with the other user
             peerConnection = new RTCPeerConnection(iceServers);
             localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-            
+
             peerConnection.onicecandidate = event => {
                 if (event.candidate) {
                     socket.emit('webrtcSignal', {
@@ -290,7 +298,6 @@
                 }
             });
         }
-
         socket.on('chatAccepted', async (otherUserId) => {
             videoChat.style.display = "block";
             await startLocalStream();
