@@ -169,28 +169,29 @@
             Object.values(markers).forEach(marker => map.removeLayer(marker));
             markers = {};
 
-            users.forEach(user => {
-                const
-                    { id, lat, lon } = user;
-                console.log("User id:", id);
-                console.log("Socket id:", socket.id);
-                const markerIcon = id === socket.id ? redIcon : blueIcon;
-                const marker = L.marker([lat, lon], { icon: markerIcon }).addTo(map);
-                markers[id] = marker;
+            users.forEach
+                (user => {
+                    const { id, lat, lon } = user;
+                    console.log("User id:", id);
+                    console.log("Socket id:", socket.id);
+                    const markerIcon = id === socket.id ? redIcon : blueIcon;
+                    const marker = L.marker([lat, lon], { icon: markerIcon }).addTo(map);
+                    markers[id] = marker;
 
-                marker.on('click', () => {
-                    if (id !== socket.id) {
-                        // Emit chat request to server
-                        socket.emit('requestChat', id);
+                    marker.on('click', () => {
+                        if (id !== socket.id) {
+                            // Emit chat request to server
+                            socket.emit('requestChat', id);
 
-                        // Emit event to the server to notify the clicked user
-                        socket.emit('userClicked', id);
-                    }
+                            // Emit event to the server to notify the clicked user
+                            socket.emit('userClicked', id);
+                        }
+                    });
                 });
-            });
         });
 
         socket.on('showModal', (otherUserId) => {
+            const modal = document.getElementById("modal");
             modal.style.display = "block";
             const acceptBtn = document.getElementById('acceptBtn');
             const declineBtn = document.getElementById('declineBtn');
@@ -224,6 +225,7 @@
         }
 
         socket.on('chatRequested', (requesterId) => {
+            const modal = document.getElementById("modal");
             modal.style.display = "block";
             const acceptBtn = document.getElementById('acceptBtn');
             const declineBtn = document.getElementById('declineBtn');
