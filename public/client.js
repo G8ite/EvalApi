@@ -74,34 +74,15 @@ socket.on('updateUsers', users => {
         marker.on('click', () => {
             if (id !== socket.id) {
                 socket.emit('requestChat', id);
-                socket.emit('userClicked', id);
             }
         });
     });
 });
 
-socket.on('showModal', (otherUserId) => {
-    if (otherUserId.includes(socket.id)) {
-        const modal = document.getElementById("modal");
-        modal.style.display = "block";
-        const acceptBtn = document.getElementById('acceptBtn');
-        const declineBtn = document.getElementById('declineBtn');
-
-        acceptBtn.onclick = function () {
-            modal.style.display = "none";
-            socket.emit('acceptChat', otherUserId);
-            startCall(otherUserId);
-        };
-
-        declineBtn.onclick = function () {
-            modal.style.display = "none";
-        };
-    }
-});
-
-socket.on('chatRequested', (requesterId) => {
+socket.on('chatRequested', requesterId => {
     const modal = document.getElementById("modal");
     modal.style.display = "block";
+
     const acceptBtn = document.getElementById('acceptBtn');
     const declineBtn = document.getElementById('declineBtn');
 
