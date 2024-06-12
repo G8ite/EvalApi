@@ -113,6 +113,7 @@ socket.on('chatRequested', requesterId => {
 
 // Gestionnaire d'événement pour l'acceptation du chat
 socket.on('chatAccepted', ({ room, userId }) => {
+    console.log(room)
     socket.emit('joinRoom', room);
     startCall(room, userId);
 });
