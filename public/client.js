@@ -126,8 +126,6 @@ const startCall = (room, otherUserId) => {
     // Obtention de l'accès aux périphériques multimédias
     navigator.mediaDevices.getUserMedia({ video: true, audio: true })
         .then(stream => {
-            console.log('Local stream obtained');
-            console.log(stream)
             document.getElementById('localVideo').srcObject = stream;
             localStream = stream;
 
@@ -146,28 +144,23 @@ const startCall = (room, otherUserId) => {
             // Ajout des pistes du flux local à la connexion peer-to-peer
             stream.getTracks().forEach(track => {
                 peerConnection.addTrack(track, stream);
-                console.log(`Track added: ${track.kind}`);
             });
 
             // Gestionnaire d'événement pour la génération de candidats ICE
             peerConnection.onicecandidate = event => {
                 if (event.candidate) {
-                    console.log('Sending ICE candidate');
                     socket.emit('webrtcSignal', { target: otherUserId, signal: event.candidate });
                 }
             };
 
             // Gestionnaire d'événement pour la réception des flux distants
             peerConnection.ontrack = event => {
-                console.log('Remote stream received');
-                console.log(event.streams[0])
                 document.getElementById('remoteVideo').srcObject = event.streams[0];
                 remoteStream = event.streams[0]
             };
 
             // Gestionnaire d'événement pour le changement de l'état de la connexion ICE
             peerConnection.oniceconnectionstatechange = () => {
-                console.log(`ICE connection state: ${peerConnection.iceConnectionState}`);
                 if (peerConnection.iceConnectionState === 'disconnected') {
                     videoCallModal.style.display = "none";
                 }
@@ -177,18 +170,14 @@ const startCall = (room, otherUserId) => {
             socket.on('webrtcSignal', ({ signal, from }) => {
                 if (from === otherUserId) {
                     if (signal.type === 'offer') {
-                        console.log('Received SDP offer');
                         peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
                         peerConnection.createAnswer().then(answer => {
                             peerConnection.setLocalDescription(answer);
-                            console.log('Sending SDP answer');
                             socket.emit('webrtcSignal', { target: otherUserId, signal: answer });
                         });
                     } else if (signal.type === 'answer') {
-                        console.log('Received SDP answer');
                         peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
                     } else if (signal.candidate) {
-                        console.log('Received ICE candidate');
                         peerConnection.addIceCandidate(new RTCIceCandidate(signal));
                     }
                 }
@@ -198,7 +187,6 @@ const startCall = (room, otherUserId) => {
             if (otherUserId) {
                 peerConnection.createOffer().then(offer => {
                     peerConnection.setLocalDescription(offer);
-                    console.log('Sending SDP offer');
                     socket.emit('webrtcSignal', { target: otherUserId, signal: offer });
                 });
             }
