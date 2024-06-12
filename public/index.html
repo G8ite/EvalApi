@@ -170,7 +170,8 @@
             markers = {};
 
             users.forEach(user => {
-                const { id, lat, lon } = user;
+                const
+                    { id, lat, lon } = user;
                 console.log("User id:", id);
                 console.log("Socket id:", socket.id);
                 const markerIcon = id === socket.id ? redIcon : blueIcon;
@@ -189,16 +190,15 @@
             });
         });
 
-        socket.on('showModal', () => {
+        socket.on('showModal', (otherUserId) => {
             modal.style.display = "block";
             const acceptBtn = document.getElementById('acceptBtn');
             const declineBtn = document.getElementById('declineBtn');
 
             acceptBtn.onclick = function () {
                 modal.style.display = "none";
-                socket.emit('acceptChat');
+                socket.emit('acceptChat', otherUserId);
                 startCall(otherUserId);
-
             };
 
             declineBtn.onclick = function () {
@@ -208,23 +208,22 @@
 
         const hangupBtn = document.getElementById('hangupBtn');
         hangupBtn.onclick = function () {
-            // Terminer l'appel vidéo
+            // End the video call
             endCall();
         };
+
         function endCall() {
-            // Arrêter le flux vidéo local
+            // Stop local video stream
             stopLocalStream();
-            // Fermer la connexion WebRTC
+            // Close WebRTC connection
             if (peerConnection) {
                 peerConnection.close();
             }
-            // Cacher la modale de l'appel vidéo
+            // Hide video call modal
             videoCallModal.style.display = "none";
         }
 
-
         socket.on('chatRequested', (requesterId) => {
-
             modal.style.display = "block";
             const acceptBtn = document.getElementById('acceptBtn');
             const declineBtn = document.getElementById('declineBtn');
@@ -232,6 +231,7 @@
             acceptBtn.onclick = function () {
                 modal.style.display = "none";
                 socket.emit('acceptChat', requesterId);
+                startCall(requesterId);
             };
 
             declineBtn.onclick = function () {
@@ -267,7 +267,7 @@
         // WebRTC setup
         let localStream;
         let peerConnection;
-        const videoChat = document.getElementById("video-chat");
+        const videoCallModal = document.getElementById("videoCallModal");
         const localVideo = document.getElementById("localVideo");
         const remoteVideo = document.getElementById("remoteVideo");
         const iceServers = {
@@ -288,8 +288,8 @@
         }
 
         async function startCall(otherUserId) {
-            // Show the video chat modal
-            videoCallModal.style.display = "block"; // Correction ici
+            // Show the video call modal
+            videoCallModal.style.display = "block";
             // Start the local media stream
             await startLocalStream();
             // Create a WebRTC connection with the other user
@@ -326,7 +326,7 @@
         }
 
         socket.on('chatAccepted', async (otherUserId) => {
-            videoChat.style.display = "block";
+            videoCallModal.style.display = "block";
             await startLocalStream();
             await startCall(otherUserId);
         });
