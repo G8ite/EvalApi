@@ -154,15 +154,28 @@
 
                 marker.on('click', () => {
                     if (id !== socket.id) {
-                        // Emit chat request to server
-                        socket.emit('requestChat', id);
+                        modal.style.display = "block";
+                        const acceptBtn = document.getElementById('acceptBtn');
+                        const declineBtn = document.getElementById('declineBtn');
+
+                        acceptBtn.onclick = function () {
+                            modal.style.display = "none";
+                            socket.emit('requestChat', id);
+                        };
+
+                        declineBtn.onclick = function () {
+                            modal.style.display = "none";
+                        };
+
+                        // Emit event to the server to notify the clicked user
+                        socket.emit('userClicked', id);
                     }
                 });
             });
         });
 
-        // Listen for chat request
-        socket.on('chatRequested', () => {
+        // Listen for the event from the server to show the modal on the clicked user's screen
+        socket.on('showModal', () => {
             modal.style.display = "block";
             const acceptBtn = document.getElementById('acceptBtn');
             const declineBtn = document.getElementById('declineBtn');
@@ -174,7 +187,6 @@
 
             declineBtn.onclick = function () {
                 modal.style.display = "none";
-                socket.emit('declineChat');
             };
         });
 
