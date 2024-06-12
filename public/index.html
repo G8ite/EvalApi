@@ -248,12 +248,50 @@
                 }
             });
         });
-        function startCall(otherUserId) {
+
+        function startCall(userIds) {
+            // Demander l'accès à la caméra et au micro de l'utilisateur
             navigator.mediaDevices.getUserMedia({ video: true, audio: true })
                 .then(stream => {
-                    document.getElementById('localVideo').srcObject = stream;
-                    const peerConnection = connections.get(otherUserId);
-                    stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
+                    document.getElementById('localVideo').srcObject = stream; // Afficher la vidéo locale
+                    const peerConnection = new RTCPeerConnection(); // Créer une nouvelle connexion peer
+                    stream.getTracks().forEach(track => peerConnection.addTrack(track, stream)); // Ajouter des pistes à la connexion
+                    peerConnection.ontrack = event => {
+                        document.getElementById('remoteVideo').srcObject = event.streams[0]; // Afficher la vidéo distante
+                    };
+
+                    // Écouter les événements ICE et envoyer des signaux à l'autre utilisateur
+                    peerConnection.onicecandidate = event => {
+                        if (event.candidate) {
+                            userIds.forEach(userId => {
+                                if (userId !== socket.id) { // Évitez d'envoyer à soi-même
+                                    socket.emit('webrtcSignal', { target: userId, signal: event.candidate });
+                                }
+                            });
+                        }
+                    };
+
+                    // Créer une offre SDP et définir la description locale de la session
+                    peerConnection.createOffer()
+                        .then(offer => peerConnection.setLocalDescription(offer))
+                        .then(() => {
+                            // Envoyer l'offre SDP à l'autre utilisateur
+                            userIds.forEach(userId => {
+                                if (userId !== socket.id) { // Évitez d'envoyer à soi-même
+                                    socket.emit('webrtcSignal', { target: userId, signal: peerConnection.localDescription });
+                                }
+                            });
+                        })
+                        .catch(error => {
+                            console.error('Error creating SDP offer:', error);
+                        });
+
+                    // Gérer le bouton de fin d'appel
+                    document.getElementById('hangupBtn').onclick = () => {
+                        peerConnection.close(); // Fermer la connexion
+                        const videoCallModal = document.getElementById("videoCallModal");
+                        videoCallModal.style.display = "none"; // Masquer la modale de la vidéo
+                    };
                 })
                 .catch(error => {
                     console.error('Error accessing media devices.', error);

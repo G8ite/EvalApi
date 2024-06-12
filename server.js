@@ -9,7 +9,6 @@ const io = socketIo(server);
 const PORT = process.env.PORT || 3000;
 
 let users = {};
-let connections = new Map(); // Map pour stocker les connexions WebRTC
 
 app.use(express.static('public'));
 
