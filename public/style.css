@@ -5,6 +5,12 @@
     text-decoration: none;
     list-style: none;
 }
+body{
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
 #presentation {
     background-color: #f8f9fa;
     border: 1px solid #ced4da;
