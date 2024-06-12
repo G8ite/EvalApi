@@ -45,9 +45,11 @@ io.on('connection', socket => {
     });
 
     socket.on('webrtcSignal', (data) => {
+        console.log('Received WebRTC signal:', data);
         const { target, signal } = data;
         io.to(target).emit('webrtcSignal', { signal, from: socket.id });
     });
+
 });
 
 server.listen(PORT, () => {
