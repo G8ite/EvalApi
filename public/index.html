@@ -223,7 +223,9 @@
                 });
             });
         });
-
+        socket.on("hangupCall", () => {
+            videoCallModal.style.display = "none";
+        })
         // Gestion de l'affichage de la modale
         socket.on('showModal', (otherUserId) => {
             if (otherUserId.includes(socket.id)) {
@@ -321,6 +323,7 @@
                     document.getElementById('hangupBtn').onclick = () => {
                         peerConnection.close();
                         videoCallModal.style.display = "none";
+                        socket.emit('hangupCall');
                     };
                 })
                 .catch(error => {
