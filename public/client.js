@@ -58,6 +58,9 @@ navigator.geolocation.getCurrentPosition(position => {
     const marker = L.marker([latitude, longitude], { icon: redIcon }).addTo(map);
     markers[socket.id] = marker;
     socket.emit('updateLocation', location);
+
+    // Zoom sur la position de l'utilisateur local
+    map.setView([latitude, longitude], 10);
 }, error => {
     console.error('Error getting location:', error);
 });
