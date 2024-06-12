@@ -30,14 +30,22 @@ io.on('connection', socket => {
         io.emit('updateUsers', Object.values(users));
     });
 
-    // Handle chat request
     socket.on('requestChat', targetUserId => {
         io.to(targetUserId).emit('chatRequested', socket.id);
     });
 
-    // Handle user click
     socket.on('userClicked', targetUserId => {
         io.to(targetUserId).emit('showModal');
+    });
+
+    socket.on('acceptChat', (requesterId) => {
+        io.to(requesterId).emit('chatAccepted', socket.id);
+        io.to(socket.id).emit('chatAccepted', requesterId);
+    });
+
+    socket.on('webrtcSignal', (data) => {
+        const { target, signal } = data;
+        io.to(target).emit('webrtcSignal', { signal, from: socket.id });
     });
 });
 

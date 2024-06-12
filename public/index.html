@@ -68,6 +68,25 @@
         #noButton {
             background-color: #f44336;
         }
+
+        #video-chat {
+            display: none;
+            position: fixed;
+            z-index: 1001;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.8);
+        }
+
+        #localVideo, #remoteVideo {
+            width: 45%;
+            height: 45%;
+            margin: 2%;
+            background-color: black;
+        }
     </style>
 </head>
 
@@ -81,6 +100,11 @@
             <button id="acceptBtn">Oui</button>
             <button id="declineBtn">Non</button>
         </div>
+    </div>
+
+    <div id="video-chat">
+        <video id="localVideo" autoplay playsinline></video>
+        <video id="remoteVideo" autoplay playsinline></video>
     </div>
 
     <script src="https://unpkg.com/socket.io/client-dist/socket.io.js"></script>
@@ -156,7 +180,6 @@
             });
         });
 
-        // Listen for the event from the server to show the modal on the clicked user's screen
         socket.on('showModal', () => {
             modal.style.display = "block";
             const acceptBtn = document.getElementById('acceptBtn');
@@ -172,7 +195,6 @@
             };
         });
 
-        // Listen for chat request
         socket.on('chatRequested', (requesterId) => {
             modal.style.display = "block";
             const acceptBtn = document.getElementById('acceptBtn');
@@ -201,7 +223,6 @@
         });
 
         var modal = document.getElementById("modal");
-
         var span = document.getElementsByClassName("close")[0];
 
         span.onclick = function () {
@@ -213,6 +234,112 @@
                 modal.style.display = "none";
             }
         };
+
+        // WebRTC setup
+        let localStream;
+        let peerConnection;
+        const videoChat = document.getElementById("video-chat");
+        const localVideo = document.getElementById("localVideo");
+        const remoteVideo = document.getElementById("remoteVideo");
+        const iceServers = {
+            iceServers: [
+                {
+                    urls: "stun:stun.l.google.com:19302"
+                }
+            ]
+        };
+
+        async function startLocalStream() {
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                localVideo.srcObject = localStream;
+            } catch (error) {
+                console.error("Error accessing media devices.", error);
+            }
+        }
+
+        async function startCall(otherUserId) {
+            peerConnection = new RTCPeerConnection(iceServers);
+            localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+            
+            peerConnection.onicecandidate = event => {
+                if (event.candidate) {
+                    socket.emit('webrtcSignal', {
+                        target: otherUserId,
+                        signal: {
+                            type: 'candidate',
+                            candidate: event.candidate
+                        }
+                    });
+                }
+            };
+
+            peerConnection.ontrack = event => {
+                if (event.streams && event.streams[0]) {
+                    remoteVideo.srcObject = event.streams[0];
+                }
+            };
+
+            const offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+            socket.emit('webrtcSignal', {
+                target: otherUserId,
+                signal: {
+                    type: 'offer',
+                    sdp: offer.sdp
+                }
+            });
+        }
+
+        socket.on('chatAccepted', async (otherUserId) => {
+            videoChat.style.display = "block";
+            await startLocalStream();
+            await startCall(otherUserId);
+        });
+
+        socket.on('webrtcSignal', async (data) => {
+            const { signal, from } = data;
+
+            if (!peerConnection) {
+                peerConnection = new RTCPeerConnection(iceServers);
+                localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+                peerConnection.onicecandidate = event => {
+                    if (event.candidate) {
+                        socket.emit('webrtcSignal', {
+                            target: from,
+                            signal: {
+                                type: 'candidate',
+                                candidate: event.candidate
+                            }
+                        });
+                    }
+                };
+
+                peerConnection.ontrack = event => {
+                    if (event.streams && event.streams[0]) {
+                        remoteVideo.srcObject = event.streams[0];
+                    }
+                };
+            }
+
+            if (signal.type === 'offer') {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+                socket.emit('webrtcSignal', {
+                    target: from,
+                    signal: {
+                        type: 'answer',
+                        sdp: answer.sdp
+                    }
+                });
+            } else if (signal.type === 'answer') {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
+            } else if (signal.type === 'candidate') {
+                await peerConnection.addIceCandidate(new RTCIceCandidate(signal.candidate));
+            }
+        });
     </script>
 </body>
 
