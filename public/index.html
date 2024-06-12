@@ -241,55 +241,24 @@
             startCall(otherUserId);
         });
 
-        const startCall = (otherUserId) => {
-            const videoCallModal = document.getElementById("videoCallModal");
-            videoCallModal.style.display = "block";
+        socket.on('startCall', (userIds) => {
+            userIds.forEach(userId => {
+                if (userId !== socket.id) { // Évitez de créer une connexion avec soi-même
+                    startCall(userId);
+                }
+            });
+        });
+        function startCall(otherUserId) {
             navigator.mediaDevices.getUserMedia({ video: true, audio: true })
                 .then(stream => {
                     document.getElementById('localVideo').srcObject = stream;
-                    const peerConnection = new RTCPeerConnection();
+                    const peerConnection = connections.get(otherUserId);
                     stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
-
-                    peerConnection.onicecandidate = event => {
-                        if (event.candidate) {
-                            socket.emit('webrtcSignal', { target: otherUserId, signal: event.candidate });
-                        }
-                    };
-
-                    peerConnection.ontrack = event => {
-                        document.getElementById('remoteVideo').srcObject = event.streams[0];
-                    };
-
-                    socket.on('webrtcSignal', ({ signal, from }) => {
-                        if (from === otherUserId) {
-                            if (signal.type === 'offer') {
-                                peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
-                                peerConnection.createAnswer().then(answer => {
-                                    peerConnection.setLocalDescription(answer);
-                                    socket.emit('webrtcSignal', { target: otherUserId, signal: answer });
-                                });
-                            } else if (signal.type === 'answer') {
-                                peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
-                            } else if (signal.candidate) {
-                                peerConnection.addIceCandidate(new RTCIceCandidate(signal));
-                            }
-                        }
-                    });
-
-                    peerConnection.createOffer().then(offer => {
-                        peerConnection.setLocalDescription(offer);
-                        socket.emit('webrtcSignal', { target: otherUserId, signal: offer });
-                    });
-
-                    document.getElementById('hangupBtn').onclick = () => {
-                        peerConnection.close();
-                        videoCallModal.style.display = "none";
-                    };
                 })
                 .catch(error => {
                     console.error('Error accessing media devices.', error);
                 });
-        };
+        }
 
         const modal = document.getElementById("modal");
         const modalCloseBtn = modal.querySelector('.close');
