@@ -17,10 +17,10 @@ app.get('/', (req, res) => {
 });
 
 io.on('connection', socket => {
-    console.log('New user connected');
+    console.log('New user connected:', socket.id);
 
     socket.on('disconnect', () => {
-        console.log('User disconnected');
+        console.log('User disconnected:', socket.id);
         delete users[socket.id];
         io.emit('updateUsers', Object.values(users));
     });
@@ -30,9 +30,14 @@ io.on('connection', socket => {
         io.emit('updateUsers', Object.values(users));
     });
 
-    // Gérer la demande de chat
+    // Handle chat request
     socket.on('requestChat', targetUserId => {
-        io.to(targetUserId).emit('chatRequest', socket.id);
+        io.to(targetUserId).emit('chatRequested', socket.id);
+    });
+
+    // Handle user click
+    socket.on('userClicked', targetUserId => {
+        io.to(targetUserId).emit('showModal');
     });
 });
 

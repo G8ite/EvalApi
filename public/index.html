@@ -6,19 +6,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Real-time Map</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-    <link rel="stylesheet" href="styles.css">
     <style>
         #map {
             height: 500px;
             position: relative;
             z-index: 1;
-        }
-
-        .user-marker {
-            background-color: red;
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
         }
 
         .modal {
@@ -154,18 +146,8 @@
 
                 marker.on('click', () => {
                     if (id !== socket.id) {
-                        modal.style.display = "block";
-                        const acceptBtn = document.getElementById('acceptBtn');
-                        const declineBtn = document.getElementById('declineBtn');
-
-                        acceptBtn.onclick = function () {
-                            modal.style.display = "none";
-                            socket.emit('requestChat', id);
-                        };
-
-                        declineBtn.onclick = function () {
-                            modal.style.display = "none";
-                        };
+                        // Emit chat request to server
+                        socket.emit('requestChat', id);
 
                         // Emit event to the server to notify the clicked user
                         socket.emit('userClicked', id);
@@ -187,6 +169,23 @@
 
             declineBtn.onclick = function () {
                 modal.style.display = "none";
+            };
+        });
+
+        // Listen for chat request
+        socket.on('chatRequested', (requesterId) => {
+            modal.style.display = "block";
+            const acceptBtn = document.getElementById('acceptBtn');
+            const declineBtn = document.getElementById('declineBtn');
+
+            acceptBtn.onclick = function () {
+                modal.style.display = "none";
+                socket.emit('acceptChat', requesterId);
+            };
+
+            declineBtn.onclick = function () {
+                modal.style.display = "none";
+                socket.emit('declineChat', requesterId);
             };
         });
 
