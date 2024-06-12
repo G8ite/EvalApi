@@ -262,6 +262,7 @@
                     socket.on('webrtcSignal', ({ signal, from }) => {
                         if (from === otherUserId) {
                             if (signal.type === 'offer') {
+                                console.log(peerConnection)
                                 // peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
                                 peerConnection.createAnswer().then(answer => {
                                     console.log(answer)
