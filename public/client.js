@@ -47,6 +47,7 @@ const redIcon = L.divIcon({
 
 let markers = {};
 let localStream;
+let remoteStream;
 let peerConnections = {};
 
 navigator.geolocation.getCurrentPosition(position => {
@@ -140,6 +141,7 @@ const startCall = (room, otherUserId) => {
                 console.log('Remote stream received');
                 console.log(event.streams[0])
                 document.getElementById('remoteVideo').srcObject = event.streams[0];
+                remoteStream = event.streams[0]
             };
 
             peerConnection.oniceconnectionstatechange = () => {
