@@ -138,7 +138,7 @@ const startCall = (room, otherUserId) => {
 
             peerConnection.ontrack = event => {
                 console.log('Remote stream received');
-                console.log(event.streams)
+                console.log(event.streams[0])
                 document.getElementById('remoteVideo').srcObject = event.streams[0];
             };
 
