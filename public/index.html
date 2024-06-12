@@ -201,7 +201,7 @@
         });
 
         socket.on('showModal', (otherUserId) => {
-            if (userIds.includes(socket.id)) {
+            if (otherUserId.includes(socket.id)) {
                 const modal = document.getElementById("modal");
                 modal.style.display = "block";
                 const acceptBtn = document.getElementById('acceptBtn');
