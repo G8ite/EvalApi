@@ -46,6 +46,8 @@ const redIcon = L.divIcon({
 });
 
 let markers = {};
+let localStream;
+let peerConnections = {};
 
 navigator.geolocation.getCurrentPosition(position => {
     const { latitude, longitude } = position.coords;
@@ -60,14 +62,11 @@ navigator.geolocation.getCurrentPosition(position => {
 });
 
 socket.on('updateUsers', users => {
-    console.log("Received updated users:", users);
     Object.values(markers).forEach(marker => map.removeLayer(marker));
     markers = {};
 
     users.forEach(user => {
         const { id, lat, lon } = user;
-        console.log("User id:", id);
-        console.log("Socket id:", socket.id);
         const markerIcon = id === socket.id ? redIcon : blueIcon;
         const marker = L.marker([lat, lon], { icon: markerIcon }).addTo(map);
         markers[id] = marker;
@@ -125,10 +124,15 @@ socket.on('chatAccepted', ({ room, userId }) => {
 const startCall = (room, otherUserId) => {
     const videoCallModal = document.getElementById("videoCallModal");
     videoCallModal.style.display = "block";
+
     navigator.mediaDevices.getUserMedia({ video: true, audio: true })
         .then(stream => {
             document.getElementById('localVideo').srcObject = stream;
+            localStream = stream;
+
             const peerConnection = new RTCPeerConnection();
+            peerConnections[room] = peerConnection;
+
             stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
 
             peerConnection.onicecandidate = event => {
@@ -139,6 +143,12 @@ const startCall = (room, otherUserId) => {
 
             peerConnection.ontrack = event => {
                 document.getElementById('remoteVideo').srcObject = event.streams[0];
+            };
+
+            peerConnection.oniceconnectionstatechange = () => {
+                if (peerConnection.iceConnectionState === 'disconnected') {
+                    videoCallModal.style.display = "none";
+                }
             };
 
             socket.on('webrtcSignal', ({ signal, from }) => {
@@ -157,10 +167,12 @@ const startCall = (room, otherUserId) => {
                 }
             });
 
-            peerConnection.createOffer().then(offer => {
-                peerConnection.setLocalDescription(offer);
-                socket.emit('webrtcSignal', { target: otherUserId, signal: offer });
-            });
+            if (otherUserId) {
+                peerConnection.createOffer().then(offer => {
+                    peerConnection.setLocalDescription(offer);
+                    socket.emit('webrtcSignal', { target: otherUserId, signal: offer });
+                });
+            }
 
             document.getElementById('hangupBtn').onclick = () => {
                 peerConnection.close();
