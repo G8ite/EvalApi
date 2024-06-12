@@ -17,8 +17,9 @@
     color: #6c757d;
     font-size: 16px;
 }
+
 /* Styles pour la carte */
- #map {
+#map {
     height: 500px;
     position: relative;
     z-index: 1;
