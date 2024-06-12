@@ -1,4 +1,23 @@
- /* Styles pour la carte */
+/* Styles pour la partie présentation */
+#presentation {
+    background-color: #f8f9fa;
+    border: 1px solid #ced4da;
+    border-radius: 5px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+#presentation h1 {
+    color: #343a40;
+    font-size: 24px;
+    margin-bottom: 10px;
+}
+
+#presentation p {
+    color: #6c757d;
+    font-size: 16px;
+}
+/* Styles pour la carte */
  #map {
     height: 500px;
     position: relative;
