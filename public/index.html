@@ -69,7 +69,7 @@
             background-color: #f44336;
         }
 
-        #video-chat {
+        #videoCallModal {
             display: none;
             position: fixed;
             z-index: 1001;
@@ -165,12 +165,25 @@
         });
 
         let markers = {};
+        navigator.geolocation.getCurrentPosition(position => {
+            const { latitude, longitude } = position.coords;
+            const location = { lat: latitude, lon: longitude };
+            const marker = L.marker([latitude, longitude], { icon: redIcon }).addTo(map);
+            markers[socket.id] = marker;
+            socket.emit('updateLocation', location);
+        }, error => {
+            console.error('Error getting location:', error);
+        });
+
         socket.on('updateUsers', users => {
+            console.log("Received updated users:", users);
             Object.values(markers).forEach(marker => map.removeLayer(marker));
             markers = {};
 
             users.forEach(user => {
                 const { id, lat, lon } = user;
+                console.log("User id:", id);
+                console.log("Socket id:", socket.id);
                 const markerIcon = id === socket.id ? redIcon : blueIcon;
                 const marker = L.marker([lat, lon], { icon: markerIcon }).addTo(map);
                 markers[id] = marker;
@@ -179,161 +192,122 @@
                     if (id !== socket.id) {
                         // Emit chat request to server
                         socket.emit('requestChat', id);
+
+                        // Emit event to the server to notify the clicked user
+                        socket.emit('userClicked', id);
                     }
                 });
             });
         });
 
-        socket.on('showModal', () => {
+        socket.on('showModal', (otherUserId) => {
             const modal = document.getElementById("modal");
             modal.style.display = "block";
+            const acceptBtn = document.getElementById('acceptBtn');
+            const declineBtn = document.getElementById('declineBtn');
+
+            acceptBtn.onclick = function () {
+                modal.style.display = "none";
+                socket.emit('acceptChat', otherUserId);
+                startCall(otherUserId);
+            };
+
+            declineBtn.onclick = function () {
+                modal.style.display = "none";
+            };
         });
 
-        const acceptBtn = document.getElementById('acceptBtn');
-        const declineBtn = document.getElementById('declineBtn');
-
-        acceptBtn.onclick = function () {
-            const modal = document.getElementById("modal");
-            modal.style.display = "none";
-            socket.emit('acceptChat');
-        };
-
-        declineBtn.onclick = function () {
-            const modal = document.getElementById("modal");
-            modal.style.display = "none";
-        };
-
-        const hangupBtn = document.getElementById('hangupBtn');
-        hangupBtn.onclick = function () {
-            endCall();
-        };
-
-        function endCall() {
-            stopLocalStream();
-            if (peerConnection) {
-                peerConnection.close();
-            }
-            videoCallModal.style.display = "none";
-        }
-
-        socket.on('chatRequested', () => {
+        socket.on('chatRequested', (requesterId) => {
             const modal = document.getElementById("modal");
             modal.style.display = "block";
+            const acceptBtn = document.getElementById('acceptBtn');
+            const declineBtn = document.getElementById('declineBtn');
+
+            acceptBtn.onclick = function () {
+                modal.style.display = "none";
+                socket.emit('acceptChat', requesterId);
+                startCall(requesterId);
+            };
+
+            declineBtn.onclick = function () {
+                modal.style.display = "none";
+            };
         });
 
-        let localStream;
-        let peerConnection;
-        const videoCallModal = document.getElementById("videoCallModal");
-        const localVideo = document.getElementById("localVideo");
-        const remoteVideo = document.getElementById("remoteVideo");
-        const iceServers = {
-            iceServers: [
-                {
-                    urls: "stun:stun.l.google.com:19302"
-                }
-            ]
-        };
+        socket.on('chatAccepted', (otherUserId) => {
+            startCall(otherUserId);
+        });
 
-        async function startLocalStream() {
-            try {
-                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                localVideo.srcObject = localStream;
-            } catch (error) {
-                console.error("Error accessing media devices.", error);
-            }
-        }
+        const startCall = (otherUserId) => {
+            const videoCallModal = document.getElementById("videoCallModal");
+            videoCallModal.style.display = "block";
+            navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+                .then(stream => {
+                    document.getElementById('localVideo').srcObject = stream;
+                    const peerConnection = new RTCPeerConnection();
+                    stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
 
-        async function startCall(otherUserId) {
-            videoCallModal.style.display = "block"; // Show modal for caller
-            await startLocalStream();
+                    peerConnection.onicecandidate = event => {
+                        if (event.candidate) {
+                            socket.emit('webrtcSignal', { target: otherUserId, signal: event.candidate });
+                        }
+                    };
 
-            peerConnection = new RTCPeerConnection(iceServers);
-            localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+                    peerConnection.ontrack = event => {
+                        document.getElementById('remoteVideo').srcObject = event.streams[0];
+                    };
 
-            peerConnection.onicecandidate = event => {
-                if (event.candidate) {
-                    socket.emit('webrtcSignal', {
-                        target: otherUserId,
-                        signal: {
-                            type: 'candidate',
-                            candidate: event.candidate
+                    socket.on('webrtcSignal', ({ signal, from }) => {
+                        if (from === otherUserId) {
+                            if (signal.type === 'offer') {
+                                peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
+                                peerConnection.createAnswer().then(answer => {
+                                    peerConnection.setLocalDescription(answer);
+                                    socket.emit('webrtcSignal', { target: otherUserId, signal: answer });
+                                });
+                            } else if (signal.type === 'answer') {
+                                peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
+                            } else if (signal.candidate) {
+                                peerConnection.addIceCandidate(new RTCIceCandidate(signal));
+                            }
                         }
                     });
-                }
-            };
 
-            peerConnection.ontrack = event => {
-                if (event.streams && event.streams[0]) {
-                    remoteVideo.srcObject = event.streams[0];
-                }
-            };
+                    peerConnection.createOffer().then(offer => {
+                        peerConnection.setLocalDescription(offer);
+                        socket.emit('webrtcSignal', { target: otherUserId, signal: offer });
+                    });
 
-            const offer = await peerConnection.createOffer();
-            await peerConnection.setLocalDescription(offer);
-            socket.emit('webrtcSignal', {
-                target: otherUserId,
-                signal: {
-                    type: 'offer',
-                    sdp: offer.sdp
-                }
-            });
-        }
-
-        socket.on('chatAccepted', async (otherUserId) => {
-            videoCallModal.style.display = "block"; // Open the modal for the user accepting the call
-            await startLocalStream();
-            await startCall(otherUserId);
-        });
-
-        socket.on('webrtcSignal', async (data) => {
-            const { signal, from } = data;
-
-            if (!peerConnection) {
-                peerConnection = new RTCPeerConnection(iceServers);
-                localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-
-                peerConnection.onicecandidate = event => {
-                    if (event.candidate) {
-                        socket.emit('webrtcSignal', {
-                            target: from,
-                            signal: {
-                                type: 'candidate',
-                                candidate: event.candidate
-                            }
-                        });
-                    }
-                };
-
-                peerConnection.ontrack = event => {
-                    if (event.streams && event.streams[0]) {
-                        remoteVideo.srcObject = event.streams[0];
-                    }
-                };
-            }
-
-            if (signal.type === 'offer') {
-                await peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
-                const answer = await peerConnection.createAnswer();
-                await peerConnection.setLocalDescription(answer);
-                socket.emit('webrtcSignal', {
-                    target: from,
-                    signal: {
-                        type: 'answer',
-                        sdp: answer.sdp
-                    }
+                    document.getElementById('hangupBtn').onclick = () => {
+                        peerConnection.close();
+                        videoCallModal.style.display = "none";
+                    };
+                })
+                .catch(error => {
+                    console.error('Error accessing media devices.', error);
                 });
-            } else if (signal.type === 'answer') {
-                await peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
-            } else if (signal.type === 'candidate' && signal.candidate) {
-                await peerConnection.addIceCandidate(new RTCIceCandidate(signal.candidate));
-            }
-        });
+        };
 
-        function stopLocalStream() {
-            if (localStream) {
-                localStream.getTracks().forEach(track => track.stop());
+        const modal = document.getElementById("modal");
+        const modalCloseBtn = modal.querySelector('.close');
+        modalCloseBtn.onclick = function () {
+            modal.style.display = "none";
+        };
+
+        const videoCallModal = document.getElementById("videoCallModal");
+        const videoCallModalCloseBtn = videoCallModal.querySelector('.close');
+        videoCallModalCloseBtn.onclick = function () {
+            videoCallModal.style.display = "none";
+        };
+
+        window.onclick = function (event) {
+            if (event.target == modal) {
+                modal.style.display = "none";
             }
-        }
+            if (event.target == videoCallModal) {
+                videoCallModal.style.display = "none";
+            }
+        };
     </script>
 </body>
 
