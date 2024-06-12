@@ -260,8 +260,8 @@
                     };
 
                     socket.on('webrtcSignal', ({ signal, from }) => {
+                        console.log(signal.type)
                         if (from === otherUserId) {
-                            console.log(signal.type)
                             if (signal.type === 'offer') {
                                 console.log(peerConnection)
                                 // peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
