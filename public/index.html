@@ -289,7 +289,7 @@
 
         async function startCall(otherUserId) {
             // Show the video chat modal
-            videoChat.style.display = "block";
+            videoCallModal.style.display = "block"; // Correction ici
             // Start the local media stream
             await startLocalStream();
             // Create a WebRTC connection with the other user
@@ -324,6 +324,7 @@
                 }
             });
         }
+
         socket.on('chatAccepted', async (otherUserId) => {
             videoChat.style.display = "block";
             await startLocalStream();
