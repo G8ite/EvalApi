@@ -262,8 +262,9 @@
                     socket.on('webrtcSignal', ({ signal, from }) => {
                         if (from === otherUserId) {
                             if (signal.type === 'offer') {
-                                peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
+                                // peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
                                 peerConnection.createAnswer().then(answer => {
+                                    console.log(answer)
                                     peerConnection.setLocalDescription(answer);
                                     socket.emit('webrtcSignal', { target: otherUserId, signal: answer });
                                 });
@@ -276,6 +277,7 @@
                     });
 
                     peerConnection.createOffer().then(offer => {
+                        console.log(offer)
                         peerConnection.setLocalDescription(offer);
                         socket.emit('webrtcSignal', { target: otherUserId, signal: offer });
                     });
