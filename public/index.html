@@ -103,9 +103,17 @@
         </div>
     </div>
 
-    <div id="video-chat">
-        <video id="localVideo" autoplay playsinline></video>
-        <video id="remoteVideo" autoplay playsinline></video>
+    <div id="videoCallModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <div id="localVideoContainer">
+                <video id="localVideo" autoplay muted></video>
+            </div>
+            <div id="remoteVideoContainer">
+                <video id="remoteVideo" autoplay></video>
+            </div>
+            <button id="hangupBtn">Hang Up</button>
+        </div>
     </div>
 
     <script src="https://unpkg.com/socket.io/client-dist/socket.io.js"></script>
@@ -198,7 +206,25 @@
             };
         });
 
+        const hangupBtn = document.getElementById('hangupBtn');
+        hangupBtn.onclick = function () {
+            // Terminer l'appel vidéo
+            endCall();
+        };
+        function endCall() {
+            // Arrêter le flux vidéo local
+            stopLocalStream();
+            // Fermer la connexion WebRTC
+            if (peerConnection) {
+                peerConnection.close();
+            }
+            // Cacher la modale de l'appel vidéo
+            videoCallModal.style.display = "none";
+        }
+
+
         socket.on('chatRequested', (requesterId) => {
+
             modal.style.display = "block";
             const acceptBtn = document.getElementById('acceptBtn');
             const declineBtn = document.getElementById('declineBtn');

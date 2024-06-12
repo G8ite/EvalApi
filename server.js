@@ -35,7 +35,7 @@ io.on('connection', socket => {
     });
 
     socket.on('userClicked', targetUserId => {
-        io.to(targetUserId).emit('showModal');
+        io.to(targetUserId).emit('showModal', socket.id);
     });
 
     socket.on('acceptChat', (requesterId) => {
