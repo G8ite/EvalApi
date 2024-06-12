@@ -1,10 +1,15 @@
+// Connexion au serveur WebSocket
 const socket = io();
+
+// Initialisation de la carte Leaflet
 const map = L.map('map').setView([0, 0], 2);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
+// Définition des couleurs pour les marqueurs
 const Bleu = '#0000FF';
 const Rouge = '#FF0000';
 
+// Styles CSS pour les marqueurs bleus et rouges
 const markerHtmlStylesBleu = `
     background-color: ${Bleu};
     width: 3rem;
@@ -29,6 +34,7 @@ const markerHtmlStylesRouge = `
     transform: rotate(45deg);
     border: 1px solid #FFFFFF`;
 
+// Création des icônes personnalisées pour les marqueurs bleus et rouges
 const blueIcon = L.divIcon({
     className: "my-custom-pin",
     iconAnchor: [0, 24],
@@ -45,11 +51,13 @@ const redIcon = L.divIcon({
     html: `<span style="${markerHtmlStylesRouge}" />`
 });
 
+// Initialisation des variables pour les marqueurs et les flux vidéo
 let markers = {};
 let localStream;
 let remoteStream;
 let peerConnections = {};
 
+// Obtention de la position actuelle de l'utilisateur
 navigator.geolocation.getCurrentPosition(position => {
     const { latitude, longitude } = position.coords;
     const location = { lat: latitude, lon: longitude };
@@ -62,6 +70,7 @@ navigator.geolocation.getCurrentPosition(position => {
     console.error('Error getting location:', error);
 });
 
+// Gestionnaire d'événement pour la mise à jour des utilisateurs sur la carte
 socket.on('updateUsers', users => {
     Object.values(markers).forEach(marker => map.removeLayer(marker));
     markers = {};
@@ -72,6 +81,7 @@ socket.on('updateUsers', users => {
         const marker = L.marker([lat, lon], { icon: markerIcon }).addTo(map);
         markers[id] = marker;
 
+        // Gestionnaire d'événement pour les clics sur les marqueurs
         marker.on('click', () => {
             if (id !== socket.id) {
                 socket.emit('requestChat', id);
@@ -80,6 +90,7 @@ socket.on('updateUsers', users => {
     });
 });
 
+// Gestionnaire d'événement pour la demande de chat
 socket.on('chatRequested', requesterId => {
     const modal = document.getElementById("modal");
     modal.style.display = "block";
@@ -87,26 +98,32 @@ socket.on('chatRequested', requesterId => {
     const acceptBtn = document.getElementById('acceptBtn');
     const declineBtn = document.getElementById('declineBtn');
 
+    // Gestionnaire d'événement pour accepter le chat
     acceptBtn.onclick = function () {
         modal.style.display = "none";
         socket.emit('acceptChat', requesterId);
         startCall(requesterId);
     };
 
+    // Gestionnaire d'événement pour refuser le chat
     declineBtn.onclick = function () {
         modal.style.display = "none";
     };
 });
 
+// Gestionnaire d'événement pour l'acceptation du chat
 socket.on('chatAccepted', ({ room, userId }) => {
     socket.emit('joinRoom', room);
     startCall(room, userId);
 });
 
+// Fonction pour démarrer un appel vidéo
 const startCall = (room, otherUserId) => {
+    // Affichage du modal de l'appel vidéo
     const videoCallModal = document.getElementById("videoCallModal");
     videoCallModal.style.display = "block";
 
+    // Obtention de l'accès aux périphériques multimédias
     navigator.mediaDevices.getUserMedia({ video: true, audio: true })
         .then(stream => {
             console.log('Local stream obtained');
@@ -114,6 +131,7 @@ const startCall = (room, otherUserId) => {
             document.getElementById('localVideo').srcObject = stream;
             localStream = stream;
 
+            // Création de la connexion peer-to-peer
             const peerConnection = new RTCPeerConnection({
                 iceServers: [
                     { urls: 'stun:stun.l.google.com:19302' },
@@ -125,11 +143,13 @@ const startCall = (room, otherUserId) => {
             });
             peerConnections[room] = peerConnection;
 
+            // Ajout des pistes du flux local à la connexion peer-to-peer
             stream.getTracks().forEach(track => {
                 peerConnection.addTrack(track, stream);
                 console.log(`Track added: ${track.kind}`);
             });
 
+            // Gestionnaire d'événement pour la génération de candidats ICE
             peerConnection.onicecandidate = event => {
                 if (event.candidate) {
                     console.log('Sending ICE candidate');
@@ -137,6 +157,7 @@ const startCall = (room, otherUserId) => {
                 }
             };
 
+            // Gestionnaire d'événement pour la réception des flux distants
             peerConnection.ontrack = event => {
                 console.log('Remote stream received');
                 console.log(event.streams[0])
@@ -144,6 +165,7 @@ const startCall = (room, otherUserId) => {
                 remoteStream = event.streams[0]
             };
 
+            // Gestionnaire d'événement pour le changement de l'état de la connexion ICE
             peerConnection.oniceconnectionstatechange = () => {
                 console.log(`ICE connection state: ${peerConnection.iceConnectionState}`);
                 if (peerConnection.iceConnectionState === 'disconnected') {
@@ -151,6 +173,7 @@ const startCall = (room, otherUserId) => {
                 }
             };
 
+            // Gestionnaire d'événement pour la réception des signaux WebRTC
             socket.on('webrtcSignal', ({ signal, from }) => {
                 if (from === otherUserId) {
                     if (signal.type === 'offer') {
@@ -171,6 +194,7 @@ const startCall = (room, otherUserId) => {
                 }
             });
 
+            // Envoi de l'offre SDP au pair distant
             if (otherUserId) {
                 peerConnection.createOffer().then(offer => {
                     peerConnection.setLocalDescription(offer);
@@ -179,6 +203,7 @@ const startCall = (room, otherUserId) => {
                 });
             }
 
+            // Gestionnaire d'événement pour terminer l'appel
             document.getElementById('hangupBtn').onclick = () => {
                 peerConnection.close();
                 videoCallModal.style.display = "none";
@@ -190,18 +215,21 @@ const startCall = (room, otherUserId) => {
         });
 };
 
+// Gestionnaire d'événement pour fermer la modale de demande de chat
 const modal = document.getElementById("modal");
 const modalCloseBtn = modal.querySelector('.close');
 modalCloseBtn.onclick = function () {
     modal.style.display = "none";
 };
 
+// Gestionnaire d'événement pour fermer la modale de l'appel vidéo
 const videoCallModal = document.getElementById("videoCallModal");
 const videoCallModalCloseBtn = videoCallModal.querySelector('.close');
 videoCallModalCloseBtn.onclick = function () {
     videoCallModal.style.display = "none";
 };
 
+// Gestionnaire d'événement pour fermer les modales en cliquant en dehors d'elles
 window.onclick = function (event) {
     if (event.target == modal) {
         modal.style.display = "none";
@@ -210,6 +238,7 @@ window.onclick = function (event) {
     }
 };
 
+// Gestionnaire d'événement pour terminer l'appel lorsque l'autre partie raccroche
 socket.on('hangupCall', () => {
     const videoCallModal = document.getElementById("videoCallModal");
     videoCallModal.style.display = "none";
