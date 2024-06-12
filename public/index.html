@@ -260,7 +260,7 @@
                     };
 
                     socket.on('webrtcSignal', ({ signal, from }) => {
-                        console.log(signal)
+                        console.log(from)
                         if (from === otherUserId) {
                             if (signal.type === 'offer') {
                                 console.log(peerConnection)
