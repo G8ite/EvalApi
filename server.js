@@ -41,6 +41,7 @@ io.on('connection', socket => {
     socket.on('acceptChat', (requesterId) => {
         io.to(requesterId).emit('chatAccepted', socket.id);
         io.to(socket.id).emit('chatAccepted', requesterId);
+        io.emit('showModal', [requesterId, socket.id]); 
     });
 
     socket.on('webrtcSignal', (data) => {

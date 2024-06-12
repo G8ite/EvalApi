@@ -200,22 +200,25 @@
             });
         });
 
-        socket.on('showModal', (otherUserId) => {
-            const modal = document.getElementById("modal");
-            modal.style.display = "block";
-            const acceptBtn = document.getElementById('acceptBtn');
-            const declineBtn = document.getElementById('declineBtn');
+        socket.on('showModal', (userIds) => {
+            if (userIds.includes(socket.id)) { // Vérifie si l'ID de l'utilisateur actuel est inclus dans la liste des IDs reçus
+                const modal = document.getElementById("modal");
+                modal.style.display = "block";
+                const acceptBtn = document.getElementById('acceptBtn');
+                const declineBtn = document.getElementById('declineBtn');
 
-            acceptBtn.onclick = function () {
-                modal.style.display = "none";
-                socket.emit('acceptChat', otherUserId);
-                startCall(otherUserId);
-            };
+                acceptBtn.onclick = function () {
+                    modal.style.display = "none";
+                    socket.emit('acceptChat', userIds); // Émet l'acceptation du chat avec les deux utilisateurs concernés
+                    startCall(userIds); // Démarrer l'appel avec les deux utilisateurs
+                };
 
-            declineBtn.onclick = function () {
-                modal.style.display = "none";
-            };
+                declineBtn.onclick = function () {
+                    modal.style.display = "none";
+                };
+            }
         });
+
 
         socket.on('chatRequested', (requesterId) => {
             const modal = document.getElementById("modal");
