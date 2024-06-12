@@ -1,10 +1,17 @@
 /* Styles pour la partie présentation */
+* {
+    margin: 0;
+    padding: 0;
+    text-decoration: none;
+    list-style: none;
+}
 #presentation {
     background-color: #f8f9fa;
     border: 1px solid #ced4da;
     border-radius: 5px;
     padding: 20px;
     margin-bottom: 20px;
+    text-align: center;
 }
 
 #presentation h1 {
@@ -20,7 +27,8 @@
 
 /* Styles pour la carte */
 #map {
-    height: 500px;
+    height: calc(100vh - 120px); 
+    width: 99vw;
     position: relative;
     z-index: 1;
 }
